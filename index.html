@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบแจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1 & แดชบอร์ดสรุปเวร</title>
+  <meta name="description" content="ระบบบันทึกการขึ้นเวรพยาบาล HANA LPN1 สรุปจำนวนเวร Day / Night รายเดือนและรายปี พร้อมเชื่อมต่อ Telegram Bot อัตโนมัติ">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20%220%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>👩‍⚕️</text></svg>">
+</head>
+<body>
+
+  <!-- Ambient Light Effects -->
+  <div class="bg-ambient">
+    <div class="ambient-circle-1"></div>
+    <div class="ambient-circle-2"></div>
+  </div>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand-section" onclick="switchTab('checkin')">
+        <div class="brand-logo-icon">👩‍⚕️</div>
+        <div class="brand-text">
+          <h1>HANA LPN1 Nurse Shift</h1>
+          <p>ระบบแจ้งเวรห้องพยาบาล & แดชบอร์ดสรุปสถิติ</p>
+        </div>
+      </div>
+
+      <!-- Live Clock & Shift Badge -->
+      <div class="nav-center-status">
+        <span class="live-dot"></span>
+        <span id="live-clock">กำลังโหลดเวลา...</span>
+        <span id="current-shift-badge" class="current-shift-badge day">☀️ กะปัจจุบัน: เวรเช้า</span>
+      </div>
+
+      <!-- Actions -->
+      <div class="nav-actions">
+        <button id="admin-login-btn" class="btn-admin-nav" onclick="openAdminModal()">
+          <span>🔐</span> เข้าสู่ระบบ Admin
+        </button>
+        <div id="admin-logged-box" class="admin-logged-box" style="display: none;">
+          <span class="badge-admin">👑 ผู้ดูแลระบบ</span>
+          <button class="btn-logout" onclick="adminLogout()" title="ออกจากระบบ Admin">ออกจากระบบ</button>
+        </div>
+        <button id="theme-toggle-btn" class="theme-toggle-btn" title="เปลี่ยนธีม สว่าง / มืด">🌓</button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-header-bar" id="main-nav-tabs">
+      <button class="tab-btn active" data-tab="checkin">
+        <span>📝</span> ลงเวลาขึ้นเวร
+      </button>
+      <button class="tab-btn admin-tab" data-tab="dashboard" style="display: none;">
+        <span>📊</span> แดชบอร์ดสรุปเวร
+        <span class="tab-badge">สรุปรายเดือน/ปี</span>
+      </button>
+      <button class="tab-btn admin-tab" data-tab="records" style="display: none;">
+        <span>📋</span> ประวัติการขึ้นเวร
+      </button>
+      <button class="tab-btn admin-tab" data-tab="roster" style="display: none;">
+        <span>👩‍⚕️</span> จัดการรายชื่อพยาบาล
+        <span id="roster-alert-count-badge" class="badge-license-alert" style="display: none; padding: 1px 6px; font-size: 0.68rem;">!</span>
+      </button>
+      <button class="tab-btn admin-tab" data-tab="settings" style="display: none;">
+        <span>⚙️</span> ตั้งค่า & Telegram
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Content Wrapper -->
+  <main class="main-wrapper">
+
+    <!-- ====================================================================
+         TAB 1: ลงเวลาขึ้นเวร (Check-in Form)
+         ==================================================================== -->
+    <section id="tab-checkin" class="tab-view active">
+      <div class="section-banner">
+        <div class="banner-info">
+          <h2><span>📝</span> แบบแจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1</h2>
+          <p>สำหรับพยาบาลทุกท่านกรอกข้อมูลแจ้งการเข้าปฏิบัติงานก่อนเริ่มเวร พร้อมส่งแจ้งเตือนเข้า Telegram อัตโนมัติ</p>
+        </div>
+        <div class="banner-actions">
+          <button id="btn-banner-dash" class="btn-secondary admin-tab" style="display: none;" onclick="switchTab('dashboard')">
+            <span>📊</span> ดูแดชบอร์ดสรุปเวร
+          </button>
+        </div>
+      </div>
+
+      <div class="checkin-grid">
+        <!-- Form Left Column -->
+        <div class="card">
+          <div class="card-title">
+            <span>👩‍⚕️ ข้อมูลการขึ้นเวร</span>
+            <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);"><span class="req">*</span> จำเป็นต้องระบุ</span>
+          </div>
+
+          <form id="checkin-form">
+            <!-- Nurse Selection & Quick Add -->
+            <div class="form-group">
+              <label class="form-label" for="nurse-search-input">ชื่อ - นามสกุล พยาบาล <span class="req">*</span></label>
+              <div class="nurse-select-row">
+                <!-- Searchable Combobox Component -->
+                <div class="searchable-combobox" id="nurse-combobox">
+                  <div class="combobox-input-wrap">
+                    <span class="combobox-icon">🔍</span>
+                    <input type="text" id="nurse-search-input" class="form-control combobox-input" 
+                           placeholder="พิมพ์ค้นหาชื่อ หรือคลิกเลือกพยาบาล..." autocomplete="off">
+                    <button type="button" id="combobox-clear-btn" class="combobox-clear-btn" title="ล้างข้อความ" style="display: none;">✕</button>
+                    <button type="button" id="combobox-toggle-btn" class="combobox-toggle-btn" title="เปิด/ปิดรายการ">▾</button>
+                  </div>
+                  <!-- Dropdown list menu -->
+                  <div id="nurse-dropdown-list" class="combobox-dropdown" style="display: none;"></div>
+                </div>
+
+                <!-- Hidden native select for backwards compatibility & script synchronization -->
+                <select id="nurse-select" class="form-select visually-hidden">
+                  <option value="" disabled selected>-- กำลังโหลดรายชื่อพยาบาล... --</option>
+                </select>
+
+                <button type="button" class="btn-icon-add" onclick="document.getElementById('new-nurse-box').classList.toggle('show'); document.getElementById('new-nurse-input').focus();" title="พิมพ์ชื่อคนใหม่ที่ไม่มีในรายชื่อ">
+                  <span>➕</span> เพิ่มชื่อใหม่
+                </button>
+              </div>
+              <div class="form-hint">💡 สามารถพิมพ์ชื่อหรือเบอร์โทรเพื่อค้นหาได้อย่างรวดเร็ว หรือกด "เพิ่มชื่อใหม่" หากยังไม่มีในระบบ</div>
+
+              <!-- Dynamic License Alert Box -->
+              <div id="checkin-license-alert" class="checkin-license-warning">
+                <span class="alert-pulse-icon" style="font-size: 1.3rem;">🚨</span>
+                <span id="checkin-license-alert-text"></span>
+              </div>
+
+              <!-- Inline New Nurse Box -->
+              <div id="new-nurse-box" class="new-nurse-box">
+                <div class="new-nurse-box-title">
+                  <span>✨ ลงทะเบียนพยาบาลคนใหม่ (บันทึกอัตโนมัติ)</span>
+                  <span style="cursor: pointer;" onclick="document.getElementById('new-nurse-box').classList.remove('show')">✕</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                  <input type="text" id="new-nurse-input" class="form-control" placeholder="ชื่อ-นามสกุล (เช่น พว. สมใจ รักพยาบาล)">
+                  <input type="tel" id="new-nurse-phone" class="form-control" placeholder="เบอร์โทรศัพท์ (ถ้ามี)">
+                </div>
+              </div>
+            </div>
+
+            <!-- Date Picker -->
+            <div class="form-group">
+              <label class="form-label" for="checkin-date">วันที่มาทำงาน <span class="req">*</span></label>
+              <input type="date" id="checkin-date" class="form-control" required>
+            </div>
+
+            <!-- Shift Radio Selector (Day / Night) -->
+            <div class="form-group">
+              <label class="form-label">เลือกกะ / เวรการทำงาน (Shift) <span class="req">*</span></label>
+              <div class="shift-selector-grid">
+                <!-- Day Shift -->
+                <label class="shift-card-radio day-shift">
+                  <input type="radio" name="shift" value="Day" id="shift-day" checked>
+                  <div class="shift-card-ui">
+                    <span class="shift-check-badge">✓</span>
+                    <div class="shift-icon">☀️</div>
+                    <div class="shift-title">เวรเช้า (Day Shift)</div>
+                    <div class="shift-time">07:00 - 18:00 น.</div>
+                  </div>
+                </label>
+
+                <!-- Night Shift -->
+                <label class="shift-card-radio night-shift">
+                  <input type="radio" name="shift" value="Night" id="shift-night">
+                  <div class="shift-card-ui">
+                    <span class="shift-check-badge">✓</span>
+                    <div class="shift-icon">🌙</div>
+                    <div class="shift-title">เวรดึก (Night Shift)</div>
+                    <div class="shift-time">18:00 - 07:00 น.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Duty Location (Single Room Plant 3) -->
+            <div class="form-group">
+              <label class="form-label">จุดประจำการห้องพยาบาล</label>
+              <div class="location-single-card">
+                <input type="hidden" name="location" id="duty-location" value="ห้องพยาบาล (อาคาร Plant 3)">
+                <div class="loc-icon">🏥</div>
+                <div class="loc-text">
+                  <h4>ห้องพยาบาล (อาคาร Plant 3)</h4>
+                  <span>จุดประจำการหลัก บมจ.ฮานาไมโครอิเล็คโทรนิคส</span>
+                </div>
+                <span class="status-badge-live" style="margin-left: auto;">ประจำการ</span>
+              </div>
+            </div>
+
+            <!-- Phone Number -->
+            <div class="form-group">
+              <label class="form-label" for="checkin-phone">เบอร์โทรศัพท์ติดต่อ</label>
+              <input type="tel" id="checkin-phone" class="form-control" placeholder="เช่น 081-234-5678">
+            </div>
+
+            <!-- Note -->
+            <div class="form-group">
+              <label class="form-label" for="checkin-note">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
+              <input type="text" id="checkin-note" class="form-control" placeholder="เช่น ขึ้นเวรแทน พว...., ส่งมอบงานพิเศษ">
+            </div>
+
+            <!-- Telegram Auto-Notification Notice (Always Active - No toggle button) -->
+            <div class="telegram-notice-box">
+              <div class="tg-box-left">
+                <div class="tg-app-icon">✈️</div>
+                <div class="tg-box-text">
+                  <h4>ส่งแจ้งเตือนเข้า Telegram อัตโนมัติ 100%</h4>
+                  <p>ระบบส่งข้อความแจ้งเวรเข้ากลุ่มห้องพยาบาล HANA ทันทีเมื่อกดยืนยัน (เปิดใช้งานตลอดเวลา)</p>
+                </div>
+              </div>
+              <div class="tg-status-pill">
+                <span class="tg-status-dot"></span> ส่งอัตโนมัติ
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="btn-submit-checkin" class="btn-submit">
+              <span>📋 ยืนยันการลงเวลาเข้าเวร</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Right Side: Today's On-Duty Summary -->
+        <div class="card today-duty-card">
+          <div class="card-title">
+            <span>📅 พยาบาลเข้าเวรวันนี้</span>
+            <span class="status-badge-live">Live</span>
+          </div>
+
+          <div id="today-duty-list" class="today-shifts-list">
+            <!-- Dynamic items rendered by app.js -->
+          </div>
+
+          <div style="background: var(--bg-card-alt); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--border-card);">
+            <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.4rem;">
+              ⚡️ คำแนะนำการขึ้นเวร
+            </h4>
+            <ul style="font-size: 0.78rem; color: var(--text-secondary); padding-left: 1.2rem; line-height: 1.6;">
+              <li>กรุณาลงเวลาก่อนเริ่มปฏิบัติงาน 10-15 นาที</li>
+              <li>ตรวจเช็คสต็อกยาและอุปกรณ์ฉุกเฉินให้พร้อมใช้งาน</li>
+              <li>หากมีการสลับเวรกรุณาระบุในช่อง "หมายเหตุ" ให้ชัดเจน</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         TAB 2: แดชบอร์ดสรุปเวร (Shift Analytics - Monthly & Annual)
+         ==================================================================== -->
+    <section id="tab-dashboard" class="tab-view">
+      <div class="section-banner">
+        <div class="banner-info">
+          <h2><span>📊</span> แดชบอร์ดสรุปจำนวนเวร Day / Night แต่ละเดือน</h2>
+          <p>สรุปสถิติว่าพยาบาลแต่ละคนมาทำงานกี่วัน แยกเวรเช้า/ดึก ทั้งแบบรายเดือนและสรุปภาพรวมรายปี</p>
+        </div>
+        <div class="banner-actions">
+          <button class="btn-secondary" onclick="exportSummaryCSV()">
+            <span>📥</span> ส่งออก Excel / CSV
+          </button>
+          <button class="btn-secondary" onclick="printSummaryReport()">
+            <span>🖨️</span> พิมพ์รายงานสรุป
+          </button>
+        </div>
+      </div>
+
+      <!-- Controls & Filter Bar -->
+      <div class="dashboard-controls-bar">
+        <div class="controls-left">
+          <!-- Monthly vs Annual Mode Switcher -->
+          <div class="btn-group-toggle">
+            <button type="button" id="btn-mode-monthly" class="btn-toggle-option active">
+              📅 สรุปรายเดือน (Monthly)
+            </button>
+            <button type="button" id="btn-mode-annual" class="btn-toggle-option">
+              📈 สรุปรายปี (Annual)
+            </button>
+          </div>
+
+          <!-- Year Selector -->
+          <select id="dash-year-select" class="filter-select">
+            <option value="2027">ปี 2570 (2027)</option>
+            <option value="2026" selected>ปี 2569 (2026)</option>
+            <option value="2025">ปี 2568 (2025)</option>
+          </select>
+
+          <!-- Month Selector -->
+          <select id="dash-month-select" class="filter-select">
+            <option value="1">เดือนมกราคม</option>
+            <option value="2">เดือนกุมภาพันธ์</option>
+            <option value="3">เดือนมีนาคม</option>
+            <option value="4">เดือนเมษายน</option>
+            <option value="5">เดือนพฤษภาคม</option>
+            <option value="6">เดือนมิถุนายน</option>
+            <option value="7">เดือนกรกฎาคม</option>
+            <option value="8">เดือนสิงหาคม</option>
+            <option value="9">เดือนกันยายน</option>
+            <option value="10" selected>เดือนตุลาคม</option>
+            <option value="11">เดือนพฤศจิกายน</option>
+            <option value="12">เดือนธันวาคม</option>
+          </select>
+
+          <!-- Nurse Filter -->
+          <select id="dash-nurse-filter" class="filter-select">
+            <option value="ALL">พยาบาลทุกคน (All Nurses)</option>
+          </select>
+        </div>
+
+        <div class="controls-right">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">ข้อมูลอัปเดตอัตโนมัติ</span>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="kpi-grid">
+        <!-- Total Shifts -->
+        <div class="kpi-card total">
+          <div class="kpi-header">
+            <span class="kpi-title">จำนวนเวรทั้งหมด</span>
+            <div class="kpi-icon">📋</div>
+          </div>
+          <div class="kpi-value"><span id="kpi-total-shifts">0</span><span class="kpi-unit">เวร</span></div>
+          <div class="kpi-subtext" id="kpi-avg-shifts">เฉลี่ย - เวร/คน</div>
+        </div>
+
+        <!-- Day Shifts -->
+        <div class="kpi-card day">
+          <div class="kpi-header">
+            <span class="kpi-title">เวรเช้า (Day Shift)</span>
+            <div class="kpi-icon">☀️</div>
+          </div>
+          <div class="kpi-value"><span id="kpi-day-shifts">0</span><span class="kpi-unit">วัน</span></div>
+          <div class="kpi-subtext" id="kpi-day-sub">คิดเป็น -% ของเวรทั้งหมด</div>
+        </div>
+
+        <!-- Night Shifts -->
+        <div class="kpi-card night">
+          <div class="kpi-header">
+            <span class="kpi-title">เวรดึก (Night Shift)</span>
+            <div class="kpi-icon">🌙</div>
+          </div>
+          <div class="kpi-value"><span id="kpi-night-shifts">0</span><span class="kpi-unit">วัน</span></div>
+          <div class="kpi-subtext" id="kpi-night-sub">คิดเป็น -% ของเวรทั้งหมด</div>
+        </div>
+
+        <!-- Active Nurses -->
+        <div class="kpi-card nurses">
+          <div class="kpi-header">
+            <span class="kpi-title">พยาบาลที่ปฏิบัติงาน</span>
+            <div class="kpi-icon">👩‍⚕️</div>
+          </div>
+          <div class="kpi-value"><span id="kpi-active-nurses">0</span><span class="kpi-unit">คน</span></div>
+          <div class="kpi-subtext">มีบันทึกการขึ้นเวรในช่วงนี้</div>
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="charts-grid">
+        <!-- Monthly Distribution Bar Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">
+              <span>📈</span> แนวโน้มการขึ้นเวรรายเดือน (ทั้งปี)
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item">
+                <span class="legend-color day"></span>
+                <span>เวรเช้า (Day)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color night"></span>
+                <span>เวรดึก (Night)</span>
+              </div>
+            </div>
+          </div>
+          <div id="chart-monthly-container" class="chart-svg-container">
+            <!-- Dynamic CSS/SVG chart rendered by app.js -->
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 0.5rem;">
+            💡 คลิกที่แท่งแต่ละเดือนเพื่อกรองดูข้อมูลเฉพาะเดือนนั้นได้ทันที
+          </div>
+        </div>
+
+        <!-- Nurse Duty Ranking Bars -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title">
+              <span>🏆</span> อันดับการขึ้นเวรของพยาบาลแต่ละคน
+            </div>
+            <div class="chart-legend">
+              <span>แยกสัดส่วน ☀️ เช้า / 🌙 ดึก</span>
+            </div>
+          </div>
+          <div id="nurse-ranking-container" class="nurse-ranking-list">
+            <!-- Dynamic rows rendered by app.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Full Detailed Summary Table -->
+      <div class="table-card">
+        <div class="table-header-tools">
+          <div class="card-title" style="margin-bottom: 0;">
+            <span>📋 ตารางสรุปจำนวนวันขึ้นเวรของพยาบาลแต่ละคน (Day / Night / รวมทั้งหมด)</span>
+          </div>
+          <button class="btn-secondary" onclick="exportSummaryCSV()">
+            <span>📥</span> ดาวน์โหลดตารางนี้ (.CSV)
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="modern-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">ลำดับ</th>
+                <th>ชื่อ - นามสกุล พยาบาล</th>
+                <th>เวรเช้า (Day)</th>
+                <th>เวรดึก (Night)</th>
+                <th>รวมจำนวนวัน/เวร</th>
+                <th>สัดส่วน</th>
+                <th>จุดประจำการหลัก</th>
+                <th>สถานะ</th>
+              </tr>
+            </thead>
+            <tbody id="summary-table-body">
+              <!-- Rendered by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         TAB 3: ประวัติการขึ้นเวร (Duty Records History)
+         ==================================================================== -->
+    <section id="tab-records" class="tab-view">
+      <div class="section-banner">
+        <div class="banner-info">
+          <h2><span>📋</span> ประวัติการลงเวลาเข้าเวรทั้งหมด</h2>
+          <p>ตรวจสอบรายการขึ้นเวรย้อนหลัง ค้นหา และกดส่งข้อความเข้า Telegram ซ้ำได้ตามต้องการ</p>
+        </div>
+      </div>
+
+      <!-- Filter Controls -->
+      <div class="records-filter-card">
+        <div>
+          <label class="form-label" style="font-size: 0.8rem;">ค้นหาชื่อ / จุดประจำการ / หมายเหตุ</label>
+          <input type="text" id="records-search" class="form-control" placeholder="พิมพ์คำค้นหา...">
+        </div>
+        <div>
+          <label class="form-label" style="font-size: 0.8rem;">กะการทำงาน (Shift)</label>
+          <select id="record-shift-filter" class="form-select">
+            <option value="ALL">ทั้งหมด (Day & Night)</option>
+            <option value="Day">☀️ เวรเช้า (Day)</option>
+            <option value="Night">🌙 เวรดึก (Night)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="font-size: 0.8rem;">พยาบาล</label>
+          <select id="record-nurse-filter" class="form-select">
+            <option value="ALL">พยาบาลทุกคน</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Records Table -->
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="modern-table">
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>ชื่อพยาบาล</th>
+                <th>กะ / เวร</th>
+                <th>จุดประจำการ</th>
+                <th>เบอร์โทร</th>
+                <th>หมายเหตุ</th>
+                <th style="width: 90px;">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="records-table-body">
+              <!-- Rendered by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         TAB 4: จัดการรายชื่อพยาบาล (Nurse Roster Management)
+         ==================================================================== -->
+    <section id="tab-roster" class="tab-view">
+      <div class="section-banner">
+        <div class="banner-info">
+          <h2><span>👩‍⚕️</span> จัดการรายชื่อพยาบาลประจำห้องพยาบาล</h2>
+          <p>สามารถวางรายชื่อทั้งหมดพร้อมกัน หรือเพิ่มทีละคนได้ และพยาบาลที่กรอกผ่านหน้าขึ้นเวรจะถูกบันทึกที่นี่อัตโนมัติ</p>
+        </div>
+        <div class="banner-actions">
+          <span class="status-badge-live" id="roster-total-count">0 คน</span>
+        </div>
+      </div>
+
+      <!-- License Expiration Warning Banner -->
+      <div id="roster-license-alert-banner" class="license-roster-alert-banner" style="display: none;">
+        <div class="alert-icon">🚨</div>
+        <div class="alert-text">
+          <h4 id="roster-alert-title">แจ้งเตือนวันหมดอายุใบประกอบวิชาชีพพยาบาล</h4>
+          <p id="roster-alert-desc"></p>
+        </div>
+      </div>
+
+      <div class="roster-grid">
+        <!-- Add Nurse Forms -->
+        <div>
+          <!-- Single Nurse Add -->
+          <div class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-title">
+              <span>➕ เพิ่มพยาบาลทีละคน</span>
+            </div>
+            <form id="form-add-nurse">
+              <div class="form-group">
+                <label class="form-label">ชื่อ - นามสกุล <span class="req">*</span></label>
+                <input type="text" id="roster-new-name" class="form-control" placeholder="เช่น จิราพร วงค์คำอ้าย" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">เบอร์โทรศัพท์ติดต่อ</label>
+                <input type="tel" id="roster-new-phone" class="form-control" placeholder="เช่น 089-8456158">
+              </div>
+              <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.5rem;" class="form-group">
+                <div>
+                  <label class="form-label" style="font-size: 0.8rem;">เลขใบประกอบวิชาชีพ</label>
+                  <input type="text" id="roster-new-license" class="form-control" placeholder="เช่น 5611246348">
+                </div>
+                <div>
+                  <label class="form-label" style="font-size: 0.8rem;">วันหมดอายุ</label>
+                  <input type="text" id="roster-new-expire" class="form-control" placeholder="เช่น 28-07-71">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">จุดประจำการ</label>
+                <input type="text" id="roster-new-loc" class="form-control" value="ห้องพยาบาล (อาคาร Plant 3)" readonly>
+              </div>
+              <button type="submit" class="btn-submit" style="padding: 0.75rem;">
+                <span>บันทึกพยาบาลใหม่</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Batch Import Box -->
+          <div class="card">
+            <div class="card-title">
+              <span>📋 นำเข้ารายชื่อพร้อมกันหลายคน (Batch Paste)</span>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+              วางรายชื่อพยาบาลทั้งหมดลงในช่องนี้ (บรรทัดละ 1 ชื่อ หรือคั่นด้วยเครื่องหมายจุลภาค) แล้วกดปุ่ม "นำเข้าทันที"
+            </p>
+            <textarea id="roster-batch-text" class="form-control" rows="5" placeholder="พว. สมศรี ใจดี&#10;พว. อารีย์ สุขุม&#10;พว. พรทิพย์ รักษาดี&#10;..."></textarea>
+            <button type="button" id="btn-batch-import" class="btn-secondary" style="width: 100%; margin-top: 0.75rem; justify-content: center; padding: 0.75rem;">
+              <span>📥 นำเข้ารายชื่อทั้งหมดทันที</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Nurse List Cards -->
+        <div class="card">
+          <div class="card-title">
+            <span>รายชื่อพยาบาลในระบบปัจจุบัน</span>
+          </div>
+          <div id="roster-cards-container" class="nurse-cards-container">
+            <!-- Rendered by app.js -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         TAB 5: ตั้งค่า & Telegram Bot (Settings)
+         ==================================================================== -->
+    <section id="tab-settings" class="tab-view">
+      <div class="section-banner">
+        <div class="banner-info">
+          <h2><span>⚙️</span> การตั้งค่าระบบและการเชื่อมต่อ Telegram</h2>
+          <p>กำหนดค่า Telegram Bot Token และ Chat ID เพื่อให้ระบบส่งข้อความแจ้งเตือนเข้ากลุ่มได้โดยตรง</p>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>✈️ การเชื่อมต่อ Telegram Bot</span>
+            <span class="status-badge-live">เชื่อมต่อพร้อมใช้งาน</span>
+          </div>
+
+          <form id="form-settings">
+            <div class="form-group">
+              <label class="form-label" for="settings-tg-token">Telegram Bot Token <span class="req">*</span></label>
+              <input type="text" id="settings-tg-token" class="form-control" value="7141132492:AAEWzaarVZVCA7m9gAjQjoqsyXyTpFaoDKo" required>
+              <div class="form-hint">Token เดิมจากระบบ Google Form / gs.txt ของท่าน (@Nurseform_bot)</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settings-tg-chatid">Chat ID (กลุ่มหรือห้องแชท) <span class="req">*</span></label>
+              <input type="text" id="settings-tg-chatid" class="form-control" value="-4567593144" required>
+              <div class="form-hint">Chat ID เดิมของกลุ่มห้องพยาบาล HANA LPN1</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settings-gas-url">Google Apps Script Web App URL (ตัวเลือกเสริม)</label>
+              <input type="url" id="settings-gas-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+              <div class="form-hint">หากต้องการให้ส่งข้อมูลไปลง Google Sheet โดยตรง สามารถใส่ Web App URL ได้ที่นี่</div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+              <button type="submit" class="btn-submit" style="flex: 1; padding: 0.75rem;">
+                <span>💾 บันทึกการตั้งค่า</span>
+              </button>
+              <button type="button" id="btn-test-telegram" class="btn-secondary" style="flex: 1; justify-content: center;">
+                <span>⚡️ ทดสอบส่งข้อความเข้า Telegram</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Integration Help Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>ℹ️ ข้อมูลระบบและการทำงาน</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.88rem; color: var(--text-secondary);">
+            <div style="background: var(--bg-card-alt); padding: 1rem; border-radius: var(--radius-md); border-left: 4px solid var(--primary);">
+              <h4 style="color: var(--text-primary); margin-bottom: 0.25rem;">✨ ระบบเรียนรู้ชื่อพยาบาลอัตโนมัติ</h4>
+              <p>เมื่อมีพยาบาลที่ไม่มีชื่อพิมพ์ชื่อตนเองตอนลงเวลาขึ้นเวร ระบบจะบันทึกชื่อเข้าสู่ฐานข้อมูลทันที ครั้งถัดไปเมื่อเปิดเว็บแอป ชื่อของเขาจะปรากฏอยู่ใน Dropdown ให้เลือกได้เลยโดยไม่ต้องพิมพ์ใหม่</p>
+            </div>
+
+            <div style="background: var(--bg-card-alt); padding: 1rem; border-radius: var(--radius-md); border-left: 4px solid var(--day-color);">
+              <h4 style="color: var(--text-primary); margin-bottom: 0.25rem;">📊 สรุปเวร Day / Night ทั้งเดือนและทั้งปี</h4>
+              <p>ระบบคำนวณจำนวนวันมาทำงานของพยาบาลแต่ละคนอย่างละเอียด พร้อมกราฟแท่งเปรียบเทียบสัดส่วนเวรเช้าและเวรดึก สามารถสลับดูรายเดือนหรือภาพรวมทั้งปีได้ในคลิกเดียว</p>
+            </div>
+
+            <div style="background: var(--bg-card-alt); padding: 1rem; border-radius: var(--radius-md); border-left: 4px solid #229ed9;">
+              <h4 style="color: var(--text-primary); margin-bottom: 0.25rem;">✈️ ส่งเข้า Telegram เดิมได้ 100%</h4>
+              <p>ระบบผูกกับ Bot Token และ Chat ID เดิมที่คุณเคยใช้ในสคริปต์ Google Form เดิม ทำให้ข้อความยังคงส่งเข้ากลุ่มเดิมที่พยาบาลทุกคนใช้งานอยู่ได้อย่างราบรื่น</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Admin Login Modal -->
+  <div id="admin-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>🔐 เข้าสู่ระบบผู้ดูแลระบบ (Admin Access)</h3>
+        <button class="modal-close-btn" onclick="closeAdminModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          ส่วนนี้สำหรับผู้ดูแลระบบเท่านั้น เพื่อดูแดชบอร์ดสรุปเวร, จัดการรายชื่อพยาบาล, ดูประวัติ และตั้งค่าระบบ
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="admin-pass-input">รหัสผ่านแอดมิน (Admin Password)</label>
+          <input type="password" id="admin-pass-input" class="form-control" placeholder="กรอกรหัสผ่าน..." autocomplete="current-password" onkeydown="if(event.key==='Enter') handleAdminLogin()">
+          <div id="admin-err-msg" style="color: var(--danger); font-size: 0.82rem; margin-top: 0.4rem; display: none;">
+            ❌ รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeAdminModal()">ยกเลิก</button>
+        <button type="button" class="btn-submit" style="padding: 0.6rem 1.25rem; width: auto;" onclick="handleAdminLogin()">
+          <span>เข้าสู่ระบบ</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- JavaScript Script -->
+  <script src="app.js"></script>
+</body>
+</html>

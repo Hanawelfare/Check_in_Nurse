@@ -1,0 +1,34 @@
+// เมื่อมีการส่งข้อมูลจาก Google Form
+// เผยแพร่โดย ดร.กิตติพงษ์ สุวรรณราช (อ.โจ้)  IT around U
+// ฝากกดติดตามช่อง IT around U ด้วยนะที่ https://www.youtube.com/@อาจารย์โจ้ 
+
+function onFormSubmit(e) {
+  var responses = e.values; // ดึงค่าที่ถูกกรอกจากแบบฟอร์ม
+  var message = "มีคนกรอกแบบฟอร์ม!\n\n";
+  for (var i = 1; i < responses.length; i++) {
+    message += responses[i] + "\n"; // สร้างข้อความการแจ้งเตือน
+  }
+
+  var telegramToken = "7141132492:AAEWzaarVZVCA7m9gAjQjoqsyXyTpFaoDKo"; // ใส่ token ของบอท
+  var chatId = "-4567593144"; // ใส่ Chat ID ที่ได้มา
+ 
+  var url = "https://api.telegram.org/bot" + telegramToken + "/sendMessage";
+  var payload = {
+    method: "POST",
+    contentType: "application/json",
+    payload: JSON.stringify({
+      chat_id: chatId,
+      text: message
+    })
+  };
+
+  UrlFetchApp.fetch(url, payload); // ส่งข้อความผ่าน Telegram
+}
+
+function setupTrigger() {
+  var form = FormApp.openById('1yLfDBe_QycRSbWRguqkVLNZbJMQg42wZJA7YWAFY9BQ'); // ใส่ Form ID ของแบบฟอร์ม
+  ScriptApp.newTrigger('onFormSubmit')
+           .forForm(form)
+           .onFormSubmit()
+           .create();
+}
