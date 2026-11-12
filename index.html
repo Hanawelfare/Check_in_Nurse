@@ -614,15 +614,18 @@
             <div class="form-group">
               <label class="form-label" for="settings-gas-url">Google Apps Script Web App URL (ตัวเลือกเสริม)</label>
               <input type="url" id="settings-gas-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
-              <div class="form-hint">หากต้องการให้ส่งข้อมูลไปลง Google Sheet โดยตรง สามารถใส่ Web App URL ได้ที่นี่</div>
+              <div class="form-hint">ระบบส่งเข้า Google Sheet อัตโนมัติอยู่แล้ว หากท่านมี Apps Script เสริมสามารถใส่ URL ได้ที่นี่</div>
             </div>
 
-            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
-              <button type="submit" class="btn-submit" style="flex: 1; padding: 0.75rem;">
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap;">
+              <button type="submit" class="btn-submit" style="flex: 1; min-width: 150px; padding: 0.75rem;">
                 <span>💾 บันทึกการตั้งค่า</span>
               </button>
-              <button type="button" id="btn-test-telegram" class="btn-secondary" style="flex: 1; justify-content: center;">
-                <span>⚡️ ทดสอบส่งข้อความเข้า Telegram</span>
+              <button type="button" id="btn-test-sheet" class="btn-secondary" style="flex: 1; min-width: 170px; justify-content: center;">
+                <span>📊 ทดสอบส่งเข้า Google Sheet</span>
+              </button>
+              <button type="button" id="btn-test-telegram" class="btn-secondary" style="flex: 1; min-width: 170px; justify-content: center;">
+                <span>⚡️ ทดสอบส่ง Telegram</span>
               </button>
             </div>
           </form>
@@ -635,6 +638,14 @@
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.88rem; color: var(--text-secondary);">
+            <div style="background: var(--bg-card-alt); padding: 1rem; border-radius: var(--radius-md); border-left: 4px solid #0f9d58;">
+              <h4 style="color: var(--text-primary); margin-bottom: 0.25rem;">📊 เชื่อมต่อ Google Spreadsheet อัตโนมัติ</h4>
+              <p style="margin-bottom: 0.5rem;">ระบบเชื่อมต่อกับชีต <b>การตอบแบบฟอร์ม 1</b> โดยตรง เมื่อพยาบาลลงเวลาขึ้นเวร ข้อมูลจะถูกบันทึกเข้า Google Sheet ทันที</p>
+              <a href="https://docs.google.com/spreadsheets/d/1Dr3OvUCTbst-PnYL68DIBswNT5wKuTKcddhUBYFFU74/edit?gid=1498443096#gid=1498443096" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline; font-weight: 600; font-size: 0.84rem;">
+                🔗 เปิดดู Google Sheet: 1Dr3OvUCTbst-PnYL68DIBswNT5wKuTKcddhUBYFFU74 ↗
+              </a>
+            </div>
+
             <div style="background: var(--bg-card-alt); padding: 1rem; border-radius: var(--radius-md); border-left: 4px solid var(--primary);">
               <h4 style="color: var(--text-primary); margin-bottom: 0.25rem;">✨ ระบบเรียนรู้ชื่อพยาบาลอัตโนมัติ</h4>
               <p>เมื่อมีพยาบาลที่ไม่มีชื่อพิมพ์ชื่อตนเองตอนลงเวลาขึ้นเวร ระบบจะบันทึกชื่อเข้าสู่ฐานข้อมูลทันที ครั้งถัดไปเมื่อเปิดเว็บแอป ชื่อของเขาจะปรากฏอยู่ใน Dropdown ให้เลือกได้เลยโดยไม่ต้องพิมพ์ใหม่</p>
