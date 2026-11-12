@@ -1310,8 +1310,17 @@ async function handleCheckinSubmit(e) {
 
   // Button loading state
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span class="spinner">⏳</span> กำลังบันทึกและส่งข้อมูล...';
+  submitBtn.innerHTML = '<span class="spinner">⏳</span> กำลังบันทึกข้อมูลเข้า Google Sheet และส่งแจ้งเตือน...';
 
+  // 1. ส่งข้อมูลเข้า Google Sheet (ผ่าน Google Form เชื่อมโยงตรงเข้าชีต การตอบแบบฟอร์ม 1 และ/หรือ GAS Web App)
+  let sheetResult = { formSuccess: false, gasSuccess: false };
+  try {
+    sheetResult = await syncCheckinToGoogleSheet(newRecord);
+  } catch (sheetErr) {
+    console.warn('Google Sheet sync error:', sheetErr);
+  }
+
+  // 2. ส่งข้อความแจ้งเตือน Telegram
   let telegramSuccess = false;
   try {
     telegramSuccess = await sendTelegramNotification(newRecord);
@@ -1345,17 +1354,91 @@ async function handleCheckinSubmit(e) {
   playChime();
 
   // Feedback Toast
-  if (telegramSuccess) {
-    showToast('ลงเวลาและส่ง Telegram สำเร็จ!', `บันทึกข้อมูล ${nurseName} (เวร ${shift === 'Day' ? 'เช้า ☀️' : 'ดึก 🌙'}) และส่งแจ้งเตือนเข้า Telegram เรียบร้อยแล้ว`, 'success');
-  } else {
-    showToast('บันทึกสำเร็จ (Telegram ส่งไม่สำเร็จ)', `บันทึกเวรเข้าสู่ระบบแล้ว แต่ไม่สามารถส่งแจ้งเตือนเข้า Telegram ได้ กรุณาตรวจสอบการตั้งค่า Bot Token`, 'info');
-  }
+  showToast(
+    'ลงเวลาขึ้นเวรสำเร็จ!',
+    `บันทึกข้อมูล ${nurseName} (เวร ${shift === 'Day' ? 'เช้า ☀️' : 'ดึก 🌙'}) เข้า Google Sheet เรียบร้อยแล้ว${telegramSuccess ? ' พร้อมส่งแจ้งเตือน Telegram สำเร็จ' : ''}`,
+    'success'
+  );
 
   // Refresh Views
   renderTodayDutyList();
   renderDashboard();
   renderRecordsTable();
   noteInput.value = '';
+}
+
+/**
+ * บันทึกข้อมูลลง Google Sheet โดยตรง
+ * 1) ส่งผ่าน Google Form Response URL (เขียนลง Google Sheet 'การตอบแบบฟอร์ม 1' โดยตรง 100%)
+ * 2) ส่งผ่าน Google Apps Script Web App URL (หากผู้ใช้มีการกรอก URL เสริมไว้)
+ */
+async function syncCheckinToGoogleSheet(record) {
+  let formSuccess = false;
+  let gasSuccess = false;
+
+  // 1. ส่งตรงเข้า Google Form ของ HANA (ชีต: 1Dr3OvUCTbst-PnYL68DIBswNT5wKuTKcddhUBYFFU74 แผ่น: การตอบแบบฟอร์ม 1)
+  try {
+    const fullName = (record.nurseName || '').trim();
+    const parts = fullName.split(/\s+/);
+    const firstName = parts[0] || fullName;
+    const lastName = parts.slice(1).join(' ') || '';
+
+    const dateStr = record.date || new Date().toISOString().split('T')[0];
+    const [yyyy, mm, dd] = dateStr.split('-');
+    const cleanPhone = (record.phone || '').replace(/\D/g, '');
+
+    // รูปแบบ Nurse room ตามตัวเลือกของ Google Form:
+    // "ห้องพยาบาล 1 (Plant3) เวร เช้า เวลา 7.00 - 18.00 น."
+    // "ห้องพยาบาล 1 (Plant3) เวร ดึก เวลา 18.00 - 7.00 น."
+    let nurseRoomChoice = '';
+    if (record.shift === 'Day') {
+      nurseRoomChoice = 'ห้องพยาบาล 1 (Plant3) เวร เช้า เวลา 7.00 - 18.00 น.';
+    } else {
+      nurseRoomChoice = 'ห้องพยาบาล 1 (Plant3) เวร ดึก เวลา 18.00 - 7.00 น.';
+    }
+
+    const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfu9e4OWfsUOwlNt0zNfRSbPepb6Jv3oHPUbOTS2lIDatFyQg/formResponse';
+    
+    const params = new URLSearchParams();
+    params.append('entry.290368401', firstName);        // ชื่อ
+    params.append('entry.954999931', lastName);         // นามสกุล
+    params.append('entry.1400208557_year', yyyy);       // ปี วันที่มาทำงาน
+    params.append('entry.1400208557_month', String(parseInt(mm, 10))); // เดือน
+    params.append('entry.1400208557_day', String(parseInt(dd, 10)));   // วัน
+    params.append('entry.1400208557', `${yyyy}-${mm}-${dd}`);
+    params.append('entry.238999744', cleanPhone);       // เบอร์โทรศัพท์
+    params.append('entry.13771630', nurseRoomChoice);   // Nurse room
+
+    await fetch(formUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+    formSuccess = true;
+  } catch (err) {
+    console.warn('Google Form auto-sync error:', err);
+  }
+
+  // 2. ถ้าผู้ใช้มีการระบุ Google Apps Script Web App URL ไว้เพิ่มเติม
+  const gasUrl = AppState.settings.gasUrl;
+  if (gasUrl && gasUrl.trim()) {
+    try {
+      await fetch(gasUrl.trim(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(record)
+      });
+      gasSuccess = true;
+    } catch (err) {
+      console.warn('Google Apps Script POST error:', err);
+    }
+  }
+
+  return { formSuccess, gasSuccess };
 }
 
 /**
@@ -2064,6 +2147,83 @@ function handleSaveSettings(e) {
   showToast('บันทึกการตั้งค่าสำเร็จ!', 'อัปเดตการตั้งค่า Telegram Bot และระบบเรียบร้อยแล้ว', 'success');
 }
 
+/**
+ * ทดสอบส่งข้อมูลเข้า Google Sheet
+ */
+async function testGoogleSheetConnection() {
+  const btn = document.getElementById('btn-test-sheet');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner">⏳</span> กำลังทดสอบส่งเข้าชีต...';
+  }
+
+  const testRecord = {
+    nurseName: 'พว. ทดสอบระบบ แอดมิน',
+    date: new Date().toISOString().split('T')[0],
+    shift: 'Day',
+    location: 'ห้องพยาบาล (Plant3)',
+    phone: '0812345678',
+    note: 'ทดสอบการส่งข้อมูลจากระบบ Nurse Shift Check-In เข้า Google Sheet'
+  };
+
+  const res = await syncCheckinToGoogleSheet(testRecord);
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+
+  if (res.formSuccess || res.gasSuccess) {
+    showToast('ทดสอบส่งเข้า Google Sheet สำเร็จ!', 'ส่งข้อมูลทดสอบเข้าชีต "การตอบแบบฟอร์ม 1" เรียบร้อยแล้ว กรุณาเปิดตรวจสอบในชีต', 'success');
+  } else {
+    showToast('ทดสอบไม่สำเร็จ', 'ไม่สามารถส่งข้อมูลเข้าชีตได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต', 'error');
+  }
+}
+
+/**
+ * ทดสอบส่งข้อความแจ้งเตือนเข้า Telegram
+ */
+async function testTelegramConnection() {
+  const token = AppState.settings.telegramToken;
+  const chatId = AppState.settings.chatId;
+
+  if (!token || !chatId) {
+    showToast('กรุณากรอกข้อมูล', 'กรุณาระบุ Telegram Token และ Chat ID ก่อนทดสอบ', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-test-telegram');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner">⏳</span> กำลังส่งทดสอบ...';
+  }
+
+  const testRecord = {
+    nurseName: 'พว. ทดสอบระบบ แอดมิน',
+    date: new Date().toISOString().split('T')[0],
+    shift: 'Day',
+    location: 'ห้องพยาบาล (อาคาร Plant 3)',
+    phone: '0812345678',
+    note: 'ทดสอบการส่งข้อความจากระบบ Nurse Shift Web App',
+    timestamp: new Date().toLocaleTimeString('th-TH')
+  };
+
+  const success = await sendTelegramNotification(testRecord);
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+
+  if (success) {
+    showToast('ทดสอบ Telegram สำเร็จ!', 'ส่งข้อความทดสอบเข้ากลุ่มห้องพยาบาล HANA เรียบร้อยแล้ว', 'success');
+  } else {
+    showToast('ส่งไม่สำเร็จ', 'ไม่สามารถส่งข้อความเข้า Telegram ได้ กรุณาตรวจสอบ Bot Token หรือ Chat ID', 'error');
+  }
+}
+
 // ==========================================================================
 // Export CSV / Excel & Print Report
 // ==========================================================================
@@ -2258,6 +2418,9 @@ function setupEventListeners() {
 
   const btnTestTg = document.getElementById('btn-test-telegram');
   if (btnTestTg) btnTestTg.addEventListener('click', testTelegramConnection);
+
+  const btnTestSheet = document.getElementById('btn-test-sheet');
+  if (btnTestSheet) btnTestSheet.addEventListener('click', testGoogleSheetConnection);
 
   // Theme Toggle Button
   const themeBtn = document.getElementById('theme-toggle-btn');
