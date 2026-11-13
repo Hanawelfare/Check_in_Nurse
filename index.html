@@ -718,6 +718,55 @@
     </div>
   </div>
 
+  <!-- Edit Nurse Modal -->
+  <div id="edit-nurse-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>✏️ แก้ไขข้อมูลพยาบาล & ใบประกอบวิชาชีพ</h3>
+        <button class="modal-close-btn" onclick="closeEditNurseModal()">✕</button>
+      </div>
+      <form id="form-edit-nurse" onsubmit="handleSaveNurseEdit(event)">
+        <div class="modal-body">
+          <input type="hidden" id="edit-nurse-id">
+          
+          <div class="form-group">
+            <label class="form-label" for="edit-nurse-name">ชื่อ - นามสกุล <span class="req">*</span></label>
+            <input type="text" id="edit-nurse-name" class="form-control" required placeholder="เช่น จิราพร วงค์คำอ้าย">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-nurse-phone">เบอร์โทรศัพท์ติดต่อ</label>
+            <input type="tel" id="edit-nurse-phone" class="form-control" placeholder="เช่น 089-8456158">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;" class="form-group">
+            <div>
+              <label class="form-label" for="edit-nurse-license" style="font-size: 0.82rem;">เลขที่ใบประกอบวิชาชีพ</label>
+              <input type="text" id="edit-nurse-license" class="form-control" placeholder="เช่น 5611246348">
+              <div class="form-hint" style="font-size: 0.72rem;">ระบุเลขที่ใบอนุญาต</div>
+            </div>
+            <div>
+              <label class="form-label" for="edit-nurse-expire" style="font-size: 0.82rem;">วันหมดอายุใบประกอบ</label>
+              <input type="text" id="edit-nurse-expire" class="form-control" placeholder="เช่น 28-07-71">
+              <div class="form-hint" style="font-size: 0.72rem;">รูปแบบ วว-ดด-ปป (พ.ศ.)</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-nurse-loc">จุดประจำการหลัก</label>
+            <input type="text" id="edit-nurse-loc" class="form-control" value="ห้องพยาบาล (อาคาร Plant 3)" readonly>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeEditNurseModal()">ยกเลิก</button>
+          <button type="submit" class="btn-submit" style="padding: 0.6rem 1.25rem; width: auto;">
+            <span>💾 บันทึกการแก้ไข</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
