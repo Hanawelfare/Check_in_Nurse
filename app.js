@@ -7,7 +7,7 @@
 // Official Hana Microelectronics Nurses Roster (บมจ.ฮานาไมโครอิเล็คโทรนิคส)
 const DEFAULT_NURSES = [
   { id: 'N01', name: 'จิราพร วงค์คำอ้าย', licenseNo: '5611246348', expireDate: '28-07-71', phone: '089-8456158', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
-  { id: 'N02', name: 'นิติยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
+  { id: 'N02', name: 'นิตยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N03', name: 'อภิชญา ประกายวิทย์', licenseNo: '4711107219', expireDate: '25-07-72', phone: '081-1289079', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N04', name: 'พรรณราย โยมา', licenseNo: '4411161606', expireDate: '28-03-69', phone: '098-7791689', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N05', name: 'เรวริญ มะโนภี', licenseNo: '5611246897', expireDate: '28-07-71', phone: '065-6145465', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
@@ -98,7 +98,7 @@ function normalizeNurseName(rawName, phone = '') {
     'อุษณิษา': 'อุษณีย์ษา กสิกรณ์',
     'อุษณิษา กสิกรณ์': 'อุษณีย์ษา กสิกรณ์',
     'อุษณีย์ษา': 'อุษณีย์ษา กสิกรณ์',
-    'นิตยาภรณ์': 'นิตยาภรณ์ แก้วมูลมุข',
+    'นิตยาภรณ์': 'นิติยาภรณ์ แก้วมูลมุข',
     'เพ็ญศรี': 'เพ็ญศรี บัวอินทร์',
     'บงกชกร': 'บงกชกร ประทุมทา',
     'กรุณา': 'กรุณา ยะนา',
@@ -2030,7 +2030,10 @@ function renderRosterList() {
             </p>
           </div>
         </div>
-        <button class="action-btn-sm delete" title="ลบพยาบาลนี้" onclick="deleteNurse('${nurse.id}')">🗑️</button>
+        <div class="nurse-card-actions">
+          <button class="action-btn-sm edit" title="แก้ไขข้อมูลพยาบาล & ใบประกอบวิชาชีพ" onclick="openEditNurseModal('${nurse.id}')">✏️</button>
+          <button class="action-btn-sm delete" title="ลบพยาบาลนี้" onclick="deleteNurse('${nurse.id}')">🗑️</button>
+        </div>
       </div>
     `;
   });
@@ -2126,6 +2129,87 @@ function deleteNurse(nurseId) {
   populateNurseDropdown();
   renderRosterList();
   showToast('ลบรายชื่อสำเร็จ', `นำ ${nurse.name} ออกจากระบบเรียบร้อย`, 'info');
+}
+
+// ==========================================================================
+// Edit Nurse Modal Handlers
+// ==========================================================================
+function openEditNurseModal(nurseId) {
+  const nurse = AppState.nurses.find(n => n.id === nurseId);
+  if (!nurse) return;
+
+  const modal = document.getElementById('edit-nurse-modal');
+  const idInput = document.getElementById('edit-nurse-id');
+  const nameInput = document.getElementById('edit-nurse-name');
+  const phoneInput = document.getElementById('edit-nurse-phone');
+  const licInput = document.getElementById('edit-nurse-license');
+  const expInput = document.getElementById('edit-nurse-expire');
+  const locInput = document.getElementById('edit-nurse-loc');
+
+  if (idInput) idInput.value = nurse.id;
+  if (nameInput) nameInput.value = nurse.name || '';
+  if (phoneInput) phoneInput.value = nurse.phone || '';
+  if (licInput) licInput.value = nurse.licenseNo || '';
+  if (expInput) expInput.value = nurse.expireDate || '';
+  if (locInput) locInput.value = nurse.defaultLocation || 'ห้องพยาบาล (อาคาร Plant 3)';
+
+  if (modal) modal.classList.add('show');
+}
+
+function closeEditNurseModal() {
+  const modal = document.getElementById('edit-nurse-modal');
+  if (modal) modal.classList.remove('show');
+}
+
+function handleSaveNurseEdit(e) {
+  if (e) e.preventDefault();
+  const idInput = document.getElementById('edit-nurse-id');
+  const nameInput = document.getElementById('edit-nurse-name');
+  const phoneInput = document.getElementById('edit-nurse-phone');
+  const licInput = document.getElementById('edit-nurse-license');
+  const expInput = document.getElementById('edit-nurse-expire');
+  const locInput = document.getElementById('edit-nurse-loc');
+
+  const nurseId = idInput ? idInput.value : '';
+  const nurse = AppState.nurses.find(n => n.id === nurseId);
+  if (!nurse) return;
+
+  const oldName = nurse.name;
+  const newName = nameInput ? nameInput.value.trim() : nurse.name;
+  const newPhone = phoneInput ? phoneInput.value.trim() : '';
+  const newLicense = licInput ? licInput.value.trim() : '';
+  const newExpire = expInput ? expInput.value.trim() : '';
+  const newLoc = locInput ? locInput.value.trim() : 'ห้องพยาบาล (อาคาร Plant 3)';
+
+  if (!newName) {
+    showToast('กรุณาระบุชื่อพยาบาล', '', 'error');
+    return;
+  }
+
+  // อัปเดตข้อมูลพยาบาล
+  nurse.name = newName;
+  nurse.phone = newPhone;
+  nurse.licenseNo = newLicense;
+  nurse.expireDate = newExpire;
+  nurse.defaultLocation = newLoc;
+
+  // หากมีการเปลี่ยนชื่อ ให้อัปเดตประวัติการลงเวลาให้ตรงกัน
+  if (oldName !== newName) {
+    AppState.records.forEach(r => {
+      if (r.nurseName === oldName) {
+        r.nurseName = newName;
+      }
+    });
+    saveRecords();
+  }
+
+  saveNurses();
+  populateNurseDropdown();
+  renderRosterList();
+  renderTodayDutyList();
+  closeEditNurseModal();
+
+  showToast('แก้ไขข้อมูลสำเร็จ!', `อัปเดตข้อมูลและวันหมดอายุใบประกอบของ "${newName}" เรียบร้อยแล้ว`, 'success');
 }
 
 // ==========================================================================
