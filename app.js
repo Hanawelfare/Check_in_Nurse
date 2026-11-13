@@ -2215,7 +2215,8 @@ function doPost(e) {
       var formattedTimestamp = Utilities.formatDate(now, "Asia/Bangkok", "d/M/yyyy, HH:mm:ss");
 
       var fullName = (data.nurseName || "").trim();
-      var parts = fullName.split(/\\s+/);
+      var cleanFullName = fullName.replace(/^(พว\\.|พว|พยาบาล|น\\.ส\\.|นางสาว|นาง|นาย)\\s*/i, "").trim();
+      var parts = (cleanFullName || fullName).split(/\\s+/);
       var firstName = parts[0] || fullName;
       var lastName = parts.slice(1).join(" ") || "";
 
@@ -2227,6 +2228,7 @@ function doPost(e) {
       }
 
       var cleanPhone = (data.phone || "").replace(/\\D/g, "");
+      var phoneText = cleanPhone ? ("'" + cleanPhone) : "";
 
       var dutyDate = data.date || Utilities.formatDate(now, "Asia/Bangkok", "yyyy-MM-dd");
       var formattedDutyDate = dutyDate;
@@ -2238,9 +2240,12 @@ function doPost(e) {
       }
 
       var lastCol = sheet.getLastColumn();
+      var appendedRowIndex = sheet.getLastRow() + 1;
+      
       if (lastCol > 0) {
         var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
         var rowData = new Array(headers.length).fill("");
+        var phoneCol = -1;
         
         for (var c = 0; c < headers.length; c++) {
           var h = String(headers[c] || "").trim().toLowerCase();
@@ -2252,8 +2257,9 @@ function doPost(e) {
             rowData[c] = lastName;
           } else if (h.indexOf("วัน") !== -1 || h.indexOf("date") !== -1) {
             rowData[c] = formattedDutyDate;
-          } else if (h.indexOf("โทร") !== -1 || h.indexOf("phone") !== -1) {
-            rowData[c] = cleanPhone;
+          } else if (h.indexOf("โทร") !== -1 || h.indexOf("phone") !== -1 || h.indexOf("tel") !== -1) {
+            rowData[c] = phoneText;
+            phoneCol = c + 1;
           } else if (h.indexOf("nurse") !== -1 || h.indexOf("เวร") !== -1 || h.indexOf("ห้อง") !== -1 || h.indexOf("room") !== -1) {
             rowData[c] = shiftText;
           } else {
@@ -2261,8 +2267,16 @@ function doPost(e) {
           }
         }
         sheet.appendRow(rowData);
+        if (phoneCol > 0) {
+          try {
+            sheet.getRange(appendedRowIndex, phoneCol).setNumberFormat("@");
+          } catch(eFmt) {}
+        }
       } else {
-        sheet.appendRow([formattedTimestamp, firstName, lastName, formattedDutyDate, cleanPhone, shiftText]);
+        sheet.appendRow([formattedTimestamp, firstName, lastName, shiftText, phoneText]);
+        try {
+          sheet.getRange(appendedRowIndex, 5).setNumberFormat("@");
+        } catch(eFmt2) {}
       }
     }
 
