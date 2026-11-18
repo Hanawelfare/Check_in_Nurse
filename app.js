@@ -9,22 +9,17 @@ const DEFAULT_NURSES = [
   { id: 'N01', name: 'จิราพร วงค์คำอ้าย', licenseNo: '5611246348', expireDate: '28-07-71', phone: '089-8456158', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N02', name: 'นิตยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N03', name: 'อภิชญา ประกายวิทย์', licenseNo: '4711107219', expireDate: '25-07-72', phone: '081-1289079', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
-  { id: 'N04', name: 'พรรณราย โยมา', licenseNo: '4411161606', expireDate: '28-03-69', phone: '098-7791689', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
+  { id: 'N04', name: 'พรรณราย โยมา', licenseNo: '4411161606', expireDate: '28-03-74', phone: '098-7791689', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N05', name: 'เรวริญ มะโนภี', licenseNo: '5611246897', expireDate: '28-07-71', phone: '065-6145465', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N06', name: 'ศิริญญา อินตากาศ', licenseNo: '4811188927', expireDate: '03-04-73', phone: '083-4939566', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N07', name: 'ชาลินี ภัทรพงศ์', licenseNo: '4711181207', expireDate: '28-03-72', phone: '065-2425198', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N08', name: 'การเกต รังรองธานินทร์', licenseNo: '4511063370', expireDate: '23-12-70', phone: '081-2578900', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
-  { id: 'N09', name: 'อรัญญา นุเงิน', licenseNo: '5811262931', expireDate: '29-11-68', phone: '085-0402098', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
+  { id: 'N09', name: 'อรัญญา นุเงิน', licenseNo: '5811262931', expireDate: '29-11-73', phone: '085-0402098', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N10', name: 'อรสุรางค์ วุฒิญาณ', licenseNo: '5711253667', expireDate: '27-07-72', phone: '081-5943963', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N11', name: 'อุไรวรรณ จันทวาลย์', licenseNo: '4811189696', expireDate: '03-04-73', phone: '086-4306798', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N12', name: 'ยลลดาปกรณ์ โกมุทแดง', licenseNo: '4511052298', expireDate: '23-12-70', phone: '089-8535989', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
-  { id: 'N13', name: 'เพ็ญศรี บัวอินทร์', licenseNo: '', expireDate: '', phone: '064-8200944', defaultLocation: 'ห้องพยาบาล (Plant 3)' },
-  { id: 'N14', name: 'บงกชกร ประทุมทา', licenseNo: '', expireDate: '', phone: '090-3291995', defaultLocation: 'ห้องพยาบาล (Plant 3)' },
-  { id: 'N15', name: 'กรุณา ยะนา', licenseNo: '', expireDate: '', phone: '081-1673651', defaultLocation: 'ห้องพยาบาล (Plant 3)' },
-  { id: 'N16', name: 'จตุพร ทองธรรมชาติ', licenseNo: '', expireDate: '', phone: '085-5847760', defaultLocation: 'ห้องพยาบาล (Plant 3)' },
-  { id: 'N17', name: 'ชิญญารัตน์ ก้อนคำ', licenseNo: '', expireDate: '', phone: '081-5947645', defaultLocation: 'ห้องพยาบาล (Plant 3)' },
-  { id: 'N18', name: 'อุษณีย์ษา กสิกรณ์', licenseNo: '', expireDate: '', phone: '095-6826492', defaultLocation: 'ห้องพยาบาล (Plant 3)' },
-  { id: 'N19', name: 'ศิริพร ขวัญชม', licenseNo: '', expireDate: '', phone: '089-7002104', defaultLocation: 'ห้องพยาบาล (Plant 3)' }
+  { id: 'N13', name: 'เพ็ญศรี บัวอินทร์', licenseNo: '4511026628', expireDate: '23-12-70', phone: '064-8200944', defaultLocation: 'ห้องพยาบาล (Plant 3)' },
+  { id: 'N14', name: 'ศิริพร ขวัญชุม', licenseNo: '4511081691', expireDate: '23-12-70', phone: '089-7002104', defaultLocation: 'ห้องพยาบาล (Plant 3)' }
 ];
 
 /**
