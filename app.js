@@ -808,6 +808,19 @@ function initApp() {
   }
   syncAdminUi();
   syncSettingsInputs();
+
+  // ดึงข้อมูลสดจาก Google Sheet แบบอัตโนมัติในพื้นหลัง เพื่อให้แดชบอร์ดเป็นปัจจุบันเสมอ
+  setTimeout(() => {
+    syncRecordsFromGoogleSheet(false);
+  }, 800);
+
+  // เมื่อผู้ใช้สลับกลับมาที่แท็บเว็บนี้ (เช่น หลังแก้ข้อมูลใน Google Sheet) ให้ซิงค์ใหม่อัตโนมัติ
+  window.addEventListener('focus', () => {
+    const lastSync = AppState.lastSheetSyncTime ? new Date(AppState.lastSheetSyncTime).getTime() : 0;
+    if (Date.now() - lastSync > 15000) {
+      syncRecordsFromGoogleSheet(false);
+    }
+  });
 }
 
 function loadStorage() {
@@ -1521,6 +1534,166 @@ async function syncCheckinToGoogleSheet(record) {
     hasGasUrl: hasGasUrl,
     formSuccess: formSuccess
   };
+}
+
+// ==========================================================================
+// Live Google Sheet Synchronization (ดึงข้อมูลเวรล่าสุดจากชีตแบบ Real-time)
+// ==========================================================================
+let isSyncingSheet = false;
+
+function updateSyncButtonsState(isLoading) {
+  const dashBtn = document.getElementById('btn-sync-sheet-dash');
+  const recordsBtn = document.getElementById('btn-sync-sheet-records');
+  const settingsBtn = document.getElementById('btn-sync-from-sheet');
+  const badge = document.getElementById('sheet-sync-status-text');
+
+  const btns = [dashBtn, recordsBtn, settingsBtn].filter(Boolean);
+  btns.forEach(btn => {
+    btn.disabled = isLoading;
+    if (isLoading) {
+      btn.classList.add('loading');
+      btn.innerHTML = '<span class="spinner">⏳</span> กำลังซิงค์ข้อมูลจากชีต...';
+    } else {
+      btn.classList.remove('loading');
+      btn.innerHTML = '<span>🔄 อัปเดตข้อมูลจากชีต</span>';
+    }
+  });
+
+  if (badge) {
+    if (isLoading) {
+      badge.textContent = '⏳ กำลังดึงข้อมูลจาก Google Sheet...';
+      badge.style.color = 'var(--primary)';
+    } else if (AppState.lastSheetSyncTime) {
+      const syncDate = new Date(AppState.lastSheetSyncTime);
+      const timeStr = syncDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      badge.textContent = `🟢 ซิงค์ล่าสุด: ${timeStr} น.`;
+      badge.style.color = '#059669';
+    }
+  }
+}
+
+function fetchSheetRecordsJsonp(gasUrl) {
+  return new Promise((resolve, reject) => {
+    const callbackName = 'gas_sync_cb_' + Date.now();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('JSONP timeout'));
+    }, 12000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      if (script.parentNode) script.parentNode.removeChild(script);
+      delete window[callbackName];
+    }
+
+    window[callbackName] = function(data) {
+      cleanup();
+      if (data && data.success && Array.isArray(data.records)) {
+        resolve(data.records);
+      } else {
+        reject(new Error('Invalid JSONP data'));
+      }
+    };
+
+    script.onerror = function() {
+      cleanup();
+      reject(new Error('JSONP script error'));
+    };
+
+    const separator = gasUrl.indexOf('?') === -1 ? '?' : '&';
+    script.src = `${gasUrl}${separator}action=getRecords&callback=${callbackName}&t=${Date.now()}`;
+    document.body.appendChild(script);
+  });
+}
+
+/**
+ * ดึงข้อมูลสดจาก Google Sheet แบบ Real-time เพื่ออัปเดตแดชบอร์ดให้ตรงตามชีต 100%
+ * แม้ผู้ใช้จะเพิ่ม ลบ หรือแก้ไขแถวใน Google Sheet ยอดสรุปก็จะปรับเป็นปัจจุบันทันที
+ */
+async function syncRecordsFromGoogleSheet(isManual = false) {
+  const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec';
+  const gasUrl = (AppState.settings && AppState.settings.gasUrl && AppState.settings.gasUrl.trim())
+    ? AppState.settings.gasUrl.trim()
+    : DEFAULT_GAS_URL;
+
+  if (!gasUrl || gasUrl.indexOf('script.google.com') === -1) {
+    if (isManual) {
+      showToast('ยังไม่ได้ระบุ Web App URL', 'กรุณาระบุ Web App URL ในหน้าตั้งค่าก่อนซิงค์ข้อมูลค่ะ', 'error');
+    }
+    return false;
+  }
+
+  if (isSyncingSheet) return false;
+  isSyncingSheet = true;
+  updateSyncButtonsState(true);
+
+  let newRecords = null;
+
+  // 1. ลองดึงผ่าน fetch GET
+  try {
+    const fetchUrl = gasUrl + (gasUrl.indexOf('?') === -1 ? '?' : '&') + 'action=getRecords&t=' + Date.now();
+    const res = await fetch(fetchUrl, { method: 'GET' });
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.success && Array.isArray(json.records)) {
+        newRecords = json.records;
+      }
+    }
+  } catch (err) {
+    console.warn('Direct fetch GET failed, trying JSONP fallback...', err);
+  }
+
+  // 2. ถ้า fetch GET ติด CORS ในบางสภาพแวดล้อม ให้ใช้ JSONP Fallback
+  if (!newRecords) {
+    try {
+      newRecords = await fetchSheetRecordsJsonp(gasUrl);
+    } catch (jsonpErr) {
+      console.warn('JSONP fetch failed:', jsonpErr);
+    }
+  }
+
+  // 3. ถ้าดึงสำเร็จ ให้ปรับปรุง AppState.records ทันที
+  if (newRecords && Array.isArray(newRecords)) {
+    AppState.records = newRecords.map(r => {
+      const normName = normalizeNurseName(r.nurseName, r.phone);
+      return {
+        ...r,
+        nurseName: normName || r.nurseName
+      };
+    });
+    saveRecords();
+
+    AppState.lastSheetSyncTime = new Date().toISOString();
+
+    // อัปเดตการแสดงผลของระบบทั้งหมดให้ตรงกับชีต
+    renderDashboard();
+    renderRecordsTable();
+    renderTodayDutyList();
+
+    isSyncingSheet = false;
+    updateSyncButtonsState(false);
+
+    if (isManual) {
+      showToast(
+        'ซิงค์ข้อมูลสำเร็จ! 🔄',
+        `ดึงข้อมูลล่าสุดจาก Google Sheet เรียบร้อยแล้ว (พบทั้งหมด ${newRecords.length} รายการตามชีต)`,
+        'success'
+      );
+    }
+    return true;
+  }
+
+  isSyncingSheet = false;
+  updateSyncButtonsState(false);
+  if (isManual) {
+    showToast(
+      'ยังดึงข้อมูลจากชีตไม่ได้',
+      'กรุณานำโค้ด Code.gs ใหม่ล่าสุดไปวางใน Google Apps Script แล้วกด Deploy เพื่อเปิดระบบดึงข้อมูลชีตแบบ Real-time ค่ะ',
+      'warning'
+    );
+  }
+  return false;
 }
 
 /**
@@ -2336,205 +2509,7 @@ function handleSaveSettings(e) {
  * คัดลอกโค้ด Google Apps Script (Code.gs) ไปยัง Clipboard
  */
 function copyGasCode() {
-  const code = `/**
- * ============================================================================
- * HANA LPN1 Nurse Shift System - Google Apps Script Backend (Code.gs)
- * ============================================================================
- * คัดลอกโค้ดนี้ไปวางใน Google Sheet: ส่วนขยาย (Extensions) > Apps Script
- * แล้วกด Deploy > New deployment > Web app (Execute as: Me, Access: Anyone)
- */
-
-var SPREADSHEET_ID = "1Dr3OvUCTbst-PnYL68DIBswNT5wKuTKcddhUBYFFU74";
-var SHEET_NAME = "การตอบแบบฟอร์ม 1"; // GID: 1498443096
-var TELEGRAM_TOKEN = "7141132492:AAEWzaarVZVCA7m9gAjQjoqsyXyTpFaoDKo";
-var CHAT_ID = "-4567593144";
-
-function doGet(e) {
-  try {
-    return HtmlService.createHtmlOutputFromFile('index')
-      .setTitle('ระบบแจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "OK",
-      service: "HANA LPN1 Nurse Shift Web App & API Backend",
-      message: "ระบบ Google Apps Script Backend กำลังทำงานปกติ พร้อมรับข้อมูลการลงเวรจากหน้าเว็บ"
-    }, null, 2)).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function doPost(e) {
-  try {
-    var contents = e.postData ? e.postData.contents : "";
-    var data = {};
-    if (contents) {
-      try {
-        data = JSON.parse(contents);
-      } catch (parseErr) {
-        data = e.parameter || {};
-      }
-    } else {
-      data = e.parameter || {};
-    }
-    
-    var sheet = getTargetSheet();
-    if (sheet) {
-      var now = new Date();
-      var formattedTimestamp = Utilities.formatDate(now, "Asia/Bangkok", "d/M/yyyy, HH:mm:ss");
-
-      var fullName = (data.nurseName || "").trim();
-      var cleanFullName = fullName.replace(/^(พว\\.|พว|พยาบาล|น\\.ส\\.|นางสาว|นาง|นาย)\\s*/i, "").trim();
-      var parts = (cleanFullName || fullName).split(/\\s+/);
-      var firstName = parts[0] || fullName;
-      var lastName = parts.slice(1).join(" ") || "";
-
-      var shiftText = "";
-      if (data.shift === "Day") {
-        shiftText = "ห้องพยาบาล 1 (Plant3) เวร เช้า เวลา 7.00 - 18.00 น.";
-      } else {
-        shiftText = "ห้องพยาบาล 1 (Plant3) เวร ดึก เวลา 18.00 - 7.00 น.";
-      }
-
-      var cleanPhone = (data.phone || "").replace(/\\D/g, "");
-      var phoneText = cleanPhone ? ("'" + cleanPhone) : "";
-
-      var dutyDate = data.date || Utilities.formatDate(now, "Asia/Bangkok", "yyyy-MM-dd");
-      var formattedDutyDate = dutyDate;
-      var dateParts = dutyDate.split("-");
-      if (dateParts.length === 3) {
-        var dYear = parseInt(dateParts[0], 10);
-        var beYear = dYear > 2400 ? dYear : (dYear + 543);
-        formattedDutyDate = parseInt(dateParts[2], 10) + "/" + parseInt(dateParts[1], 10) + "/" + beYear;
-      }
-
-      var lastCol = sheet.getLastColumn();
-      var appendedRowIndex = sheet.getLastRow() + 1;
-      
-      if (lastCol > 0) {
-        var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-        var rowData = new Array(headers.length).fill("");
-        var phoneCol = -1;
-        
-        for (var c = 0; c < headers.length; c++) {
-          var h = String(headers[c] || "").trim().toLowerCase();
-          if (c === 0 || h.indexOf("เวลา") !== -1 || h.indexOf("timestamp") !== -1) {
-            rowData[c] = formattedTimestamp;
-          } else if (h.indexOf("ชื่อ") !== -1 && (h.indexOf("สกุล") !== -1 || h.indexOf("นามสกุล") !== -1)) {
-            rowData[c] = fullName;
-          } else if (h === "ชื่อ" || (h.indexOf("ชื่อ") !== -1 && h.indexOf("สกุล") === -1) || h.indexOf("first") !== -1) {
-            rowData[c] = firstName;
-          } else if (h === "นามสกุล" || (h.indexOf("สกุล") !== -1 && h.indexOf("ชื่อ") === -1) || h.indexOf("last") !== -1) {
-            rowData[c] = lastName;
-          } else if (h.indexOf("วัน") !== -1 || h.indexOf("date") !== -1) {
-            rowData[c] = formattedDutyDate;
-          } else if (h.indexOf("โทร") !== -1 || h.indexOf("phone") !== -1 || h.indexOf("tel") !== -1) {
-            rowData[c] = phoneText;
-            phoneCol = c + 1;
-          } else if (h.indexOf("nurse") !== -1 || h.indexOf("เวร") !== -1 || h.indexOf("ห้อง") !== -1 || h.indexOf("room") !== -1 || h.indexOf("กะ") !== -1 || h.indexOf("shift") !== -1) {
-            rowData[c] = shiftText;
-          } else if (h.indexOf("สถาน") !== -1 || h.indexOf("จุด") !== -1 || h.indexOf("plant") !== -1 || h.indexOf("loc") !== -1) {
-            rowData[c] = data.location || "ห้องพยาบาล (อาคาร Plant 3)";
-          } else if (h.indexOf("หมายเหตุ") !== -1 || h.indexOf("note") !== -1) {
-            rowData[c] = data.note || "-";
-          } else {
-            rowData[c] = "";
-          }
-        }
-        sheet.appendRow(rowData);
-        if (phoneCol > 0) {
-          try {
-            sheet.getRange(appendedRowIndex, phoneCol).setNumberFormat("@");
-          } catch(eFmt) {}
-        }
-      } else {
-        sheet.appendRow([formattedTimestamp, firstName, lastName, shiftText, phoneText]);
-        try {
-          sheet.getRange(appendedRowIndex, 5).setNumberFormat("@");
-        } catch(eFmt2) {}
-      }
-    }
-
-    var tgSuccess = false;
-    try {
-      tgSuccess = sendTelegramNotification(data);
-    } catch (tgErr) {
-      Logger.log("Telegram send error: " + tgErr.message);
-    }
-
-    return ContentService.createTextOutput(JSON.stringify({
-      success: true,
-      telegramSent: tgSuccess,
-      sheetAppended: true,
-      message: "บันทึกข้อมูลลง Google Sheet สำเร็จ"
-    })).setMimeType(ContentService.MimeType.JSON);
-
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: err.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function getTargetSheet() {
-  var ss;
-  try {
-    ss = SpreadsheetApp.getActiveSpreadsheet();
-  } catch (e) {}
-  if (!ss) {
-    try {
-      ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    } catch (e2) {}
-  }
-  if (!ss) return null;
-
-  var sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.getSheets()[0];
-  }
-  return sheet;
-}
-
-function sendTelegramNotification(data) {
-  var shiftThai = data.shift === "Day" 
-    ? "☀️ เวรเช้า (Day) 07:00 - 18:00 น." 
-    : "🌙 เวรดึก (Night) 18:00 - 07:00 น.";
-
-  var message = 
-    "🔔 <b>แจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1</b>\\n" +
-    "━━━━━━━━━━━━━━━━━━━━\\n" +
-    "👩‍⚕️ <b>พยาบาล:</b> " + (data.nurseName || "-") + "\\n" +
-    "📅 <b>วันที่:</b> " + (data.date || "-") + "\\n" +
-    "⏰ <b>เวร:</b> " + shiftThai + "\\n" +
-    "🏥 <b>จุดประจำการ:</b> " + (data.location || "ห้องพยาบาล 1 (Plant3)") + "\\n" +
-    "📞 <b>เบอร์ติดต่อ:</b> " + (data.phone || "-") + "\\n" +
-    "📝 <b>หมายเหตุ:</b> " + (data.note || "-") + "\\n" +
-    "⏱ <b>เวลาบันทึก:</b> " + Utilities.formatDate(new Date(), "Asia/Bangkok", "HH:mm:ss") + " น.\\n" +
-    "━━━━━━━━━━━━━━━━━━━━\\n" +
-    "<i>(ส่งจากระบบ Nurse Shift Check-In Web App)</i>";
-
-  var url = "https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage";
-  var payload = {
-    method: "POST",
-    contentType: "application/json",
-    payload: JSON.stringify({
-      chat_id: CHAT_ID,
-      text: message,
-      parse_mode: "HTML"
-    }),
-    muteHttpExceptions: true
-  };
-
-  try {
-    var response = UrlFetchApp.fetch(url, payload);
-    var resJson = JSON.parse(response.getContentText());
-    return resJson.ok;
-  } catch (e) {
-    Logger.log("Telegram Error: " + e.message);
-    return false;
-  }
-}`;
+  const code = "/**\n * ============================================================================\n * HANA LPN1 Nurse Shift System - Google Apps Script Backend (Code.gs)\n * ============================================================================\n * ใช้สำหรับผู้ใช้ที่ต้องการนำระบบไปติดตั้งเป็น Web App บน Google Apps Script \n * หรือบันทึกข้อมูลลง Google Sheet ควบคู่กับการส่ง Telegram Bot\n */\n\nvar SPREADSHEET_ID = \"1Dr3OvUCTbst-PnYL68DIBswNT5wKuTKcddhUBYFFU74\";\nvar SHEET_NAME = \"การตอบแบบฟอร์ม 1\"; // GID: 1498443096\nvar TELEGRAM_TOKEN = \"7141132492:AAEWzaarVZVCA7m9gAjQjoqsyXyTpFaoDKo\";\nvar CHAT_ID = \"-4567593144\";\n\n/**\n * เสิร์ฟหน้าเว็บแอป (Web App doGet) หรือส่งข้อมูลเวรสดจาก Google Sheet (API getRecords)\n */\nfunction doGet(e) {\n  var action = (e \u0026\u0026 e.parameter \u0026\u0026 e.parameter.action) ? e.parameter.action : \"\";\n  var callback = (e \u0026\u0026 e.parameter \u0026\u0026 e.parameter.callback) ? e.parameter.callback : \"\";\n\n  // 1. ส่งข้อมูลเวรทั้งหมดจาก Google Sheet กลับไปให้หน้าเว็บเพื่อทำสรุปแดชบอร์ด Real-time\n  if (action === \"getRecords\" || action === \"getData\" || action === \"sync\") {\n    try {\n      var records = getSheetRecords();\n      var output = JSON.stringify({\n        success: true,\n        count: records.length,\n        updatedAt: Utilities.formatDate(new Date(), \"Asia/Bangkok\", \"yyyy-MM-dd HH:mm:ss\"),\n        records: records\n      });\n      if (callback) {\n        return ContentService.createTextOutput(callback + \"(\" + output + \");\")\n          .setMimeType(ContentService.MimeType.JAVASCRIPT);\n      }\n      return ContentService.createTextOutput(output)\n        .setMimeType(ContentService.MimeType.JSON);\n    } catch (err) {\n      var errOutput = JSON.stringify({ success: false, error: err.toString(), records: [] });\n      if (callback) {\n        return ContentService.createTextOutput(callback + \"(\" + errOutput + \");\")\n          .setMimeType(ContentService.MimeType.JAVASCRIPT);\n      }\n      return ContentService.createTextOutput(errOutput)\n        .setMimeType(ContentService.MimeType.JSON);\n    }\n  }\n\n  // 2. เสิร์ฟหน้าเว็บแอป (หากมีไฟล์ index) หรือแสดงสถานะ API\n  try {\n    return HtmlService.createHtmlOutputFromFile(\u0027index\u0027)\n      .setTitle(\u0027ระบบแจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1\u0027)\n      .addMetaTag(\u0027viewport\u0027, \u0027width=device-width, initial-scale=1.0\u0027)\n      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);\n  } catch (err) {\n    return ContentService.createTextOutput(JSON.stringify({\n      status: \"OK\",\n      service: \"HANA LPN1 Nurse Shift Web App \u0026 API Backend\",\n      message: \"ระบบ Google Apps Script Backend กำลังทำงานปกติ พร้อมรับและส่งข้อมูลการลงเวร Real-time\",\n      recordsCount: getSheetRecords().length,\n      instructions: \"หากต้องการเปิดหน้าเว็บ Nurse Check-In โดยตรงผ่านลิงก์นี้ กรุณาสร้างไฟล์ HTML ชื่อ \u0027index\u0027 ใน Apps Script แล้ววางโค้ดจาก index_bundle.html ค่ะ\"\n    }, null, 2)).setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\n/**\n * รับคำขอ POST สำหรับบันทึกเวรลง Google Sheet และส่งแจ้งเตือน Telegram\n */\nfunction doPost(e) {\n  try {\n    var contents = e.postData ? e.postData.contents : \"\";\n    var data = {};\n    if (contents) {\n      try {\n        data = JSON.parse(contents);\n      } catch (parseErr) {\n        data = e.parameter || {};\n      }\n    } else {\n      data = e.parameter || {};\n    }\n    \n    // หากเป็นการร้องขอข้อมูลเวรทั้งหมดจาก Google Sheet (API Sync)\n    if (data.action === \"getRecords\" || data.action === \"sync\" || data.action === \"getData\") {\n      var syncRecords = getSheetRecords();\n      return ContentService.createTextOutput(JSON.stringify({\n        success: true,\n        count: syncRecords.length,\n        updatedAt: Utilities.formatDate(new Date(), \"Asia/Bangkok\", \"yyyy-MM-dd HH:mm:ss\"),\n        records: syncRecords\n      })).setMimeType(ContentService.MimeType.JSON);\n    }\n    \n    // 1. บันทึกข้อมูลลง Google Sheet ให้ตรงตามโครงสร้างของชีตอัตโนมัติ\n    var sheet = getTargetSheet();\n    if (sheet) {\n      var now = new Date();\n      // รูปแบบ Timestamp เช่น 12/11/2026, 10:15:30\n      var formattedTimestamp = Utilities.formatDate(now, \"Asia/Bangkok\", \"d/M/yyyy, HH:mm:ss\");\n\n      // แยก ชื่อ - นามสกุล พยาบาล (ตัดคำนำหน้า เช่น พว., น.ส., นาง เพื่อไม่ให้คำนำหน้ากลายเป็นชื่อ)\n      var fullName = (data.nurseName || \"\").trim();\n      var cleanFullName = fullName.replace(/^(พว\\.|พว|พยาบาล|น\\.ส\\.|นางสาว|นาง|นาย)\\s*/i, \"\").trim();\n      var parts = (cleanFullName || fullName).split(/\\s+/);\n      var firstName = parts[0] || fullName;\n      var lastName = parts.slice(1).join(\" \") || \"\";\n\n      // ข้อความกะและสถานที่ตรงตามแบบฟอร์มเดิมของ HANA\n      var shiftText = \"\";\n      if (data.shift === \"Day\") {\n        shiftText = \"ห้องพยาบาล 1 (Plant3) เวร เช้า เวลา 7.00 - 18.00 น.\";\n      } else {\n        shiftText = \"ห้องพยาบาล 1 (Plant3) เวร ดึก เวลา 18.00 - 7.00 น.\";\n      }\n\n      // ดึงเบอร์โทรศัพท์และใส่เครื่องหมาย \u0027 (Apostrophe) นำหน้า เพื่อบังคับให้ Google Sheet จัดเก็บเป็น Text\n      // ทำให้เลข 0 นำหน้าไม่หายไปเด็ดขาด (เช่น \u00270812345678 จะแสดงเป็น 0812345678)\n      var cleanPhone = (data.phone || \"\").replace(/\\D/g, \"\");\n      var phoneText = cleanPhone ? (\"\u0027\" + cleanPhone) : \"\";\n\n      // จัดรูปแบบวันที่มาทำงาน (เช่น 12/11/2569)\n      var dutyDate = data.date || Utilities.formatDate(now, \"Asia/Bangkok\", \"yyyy-MM-dd\");\n      var formattedDutyDate = dutyDate;\n      var dateParts = dutyDate.split(\"-\");\n      if (dateParts.length === 3) {\n        var dYear = parseInt(dateParts[0], 10);\n        var beYear = dYear \u003e 2400 ? dYear : (dYear + 543);\n        formattedDutyDate = parseInt(dateParts[2], 10) + \"/\" + parseInt(dateParts[1], 10) + \"/\" + beYear;\n      }\n\n      // ตรวจสอบหัวตารางของชีต เพื่อจับคู่ข้อมูลลงคอลัมน์ให้ตรง 100%\n      var lastCol = sheet.getLastColumn();\n      var appendedRowIndex = sheet.getLastRow() + 1;\n      \n      if (lastCol \u003e 0) {\n        var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];\n        var rowData = new Array(headers.length).fill(\"\");\n        var phoneCol = -1;\n        \n        for (var c = 0; c \u003c headers.length; c++) {\n          var h = String(headers[c] || \"\").trim().toLowerCase();\n          if (c === 0 || h.indexOf(\"เวลา\") !== -1 || h.indexOf(\"timestamp\") !== -1) {\n            rowData[c] = formattedTimestamp;\n          } else if (h.indexOf(\"ชื่อ\") !== -1 \u0026\u0026 (h.indexOf(\"สกุล\") !== -1 || h.indexOf(\"นามสกุล\") !== -1)) {\n            rowData[c] = fullName;\n          } else if (h === \"ชื่อ\" || (h.indexOf(\"ชื่อ\") !== -1 \u0026\u0026 h.indexOf(\"สกุล\") === -1) || h.indexOf(\"first\") !== -1) {\n            rowData[c] = firstName;\n          } else if (h === \"นามสกุล\" || (h.indexOf(\"สกุล\") !== -1 \u0026\u0026 h.indexOf(\"ชื่อ\") === -1) || h.indexOf(\"last\") !== -1) {\n            rowData[c] = lastName;\n          } else if (h.indexOf(\"วัน\") !== -1 || h.indexOf(\"date\") !== -1) {\n            rowData[c] = formattedDutyDate;\n          } else if (h.indexOf(\"โทร\") !== -1 || h.indexOf(\"phone\") !== -1 || h.indexOf(\"tel\") !== -1) {\n            rowData[c] = phoneText;\n            phoneCol = c + 1;\n          } else if (h.indexOf(\"nurse\") !== -1 || h.indexOf(\"เวร\") !== -1 || h.indexOf(\"ห้อง\") !== -1 || h.indexOf(\"room\") !== -1 || h.indexOf(\"กะ\") !== -1 || h.indexOf(\"shift\") !== -1) {\n            rowData[c] = shiftText;\n          } else if (h.indexOf(\"สถาน\") !== -1 || h.indexOf(\"จุด\") !== -1 || h.indexOf(\"plant\") !== -1 || h.indexOf(\"loc\") !== -1) {\n            rowData[c] = data.location || \"ห้องพยาบาล (อาคาร Plant 3)\";\n          } else if (h.indexOf(\"หมายเหตุ\") !== -1 || h.indexOf(\"note\") !== -1) {\n            rowData[c] = data.note || \"-\";\n          } else {\n            rowData[c] = \"\";\n          }\n        }\n        sheet.appendRow(rowData);\n        \n        // กำหนดรูปแบบเซลล์เบอร์โทรศัพท์ให้เป็น Plain Text (@)\n        if (phoneCol \u003e 0) {\n          try {\n            sheet.getRange(appendedRowIndex, phoneCol).setNumberFormat(\"@\");\n          } catch(eFmt) {}\n        }\n      } else {\n        // กรณีชีตมาตรฐาน 5 คอลัมน์ [ประทับเวลา, ชื่อ, นามสกุล, กะการเข้าเวร, เบอร์โทรศัพท์]\n        sheet.appendRow([\n          formattedTimestamp,\n          firstName,\n          lastName,\n          shiftText,\n          phoneText\n        ]);\n        try {\n          sheet.getRange(appendedRowIndex, 5).setNumberFormat(\"@\");\n        } catch(eFmt2) {}\n      }\n    }\n\n    // 2. ส่งข้อความแจ้งเตือนเข้า Telegram Bot\n    var tgSuccess = false;\n    try {\n      tgSuccess = sendTelegramNotification(data);\n    } catch (tgErr) {\n      Logger.log(\"Telegram send error: \" + tgErr.message);\n    }\n\n    return ContentService.createTextOutput(JSON.stringify({\n      success: true,\n      telegramSent: tgSuccess,\n      sheetAppended: true,\n      message: \"บันทึกข้อมูลลง Google Sheet และส่ง Telegram สำเร็จ\"\n    })).setMimeType(ContentService.MimeType.JSON);\n\n  } catch (err) {\n    return ContentService.createTextOutput(JSON.stringify({\n      success: false,\n      error: err.toString()\n    })).setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\nfunction getTargetSheet() {\n  var ss;\n  try {\n    ss = SpreadsheetApp.getActiveSpreadsheet();\n  } catch (e) {}\n  if (!ss) {\n    try {\n      ss = SpreadsheetApp.openById(SPREADSHEET_ID);\n    } catch (e2) {}\n  }\n  if (!ss) return null;\n\n  var sheet = ss.getSheetByName(SHEET_NAME);\n  if (!sheet) {\n    sheet = ss.getSheets()[0];\n  }\n  return sheet;\n}\n\n/**\n * ฟังก์ชันส่งข้อความเข้า Telegram Bot\n */\nfunction sendTelegramNotification(data) {\n  var shiftThai = data.shift === \"Day\" \n    ? \"☀️ เวรเช้า (Day) 07:00 - 18:00 น.\" \n    : \"🌙 เวรดึก (Night) 18:00 - 07:00 น.\";\n\n  var message = \n    \"🔔 \u003cb\u003eแจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1\u003c/b\u003e\\n\" +\n    \"━━━━━━━━━━━━━━━━━━━━\\n\" +\n    \"👩‍⚕️ \u003cb\u003eพยาบาล:\u003c/b\u003e \" + (data.nurseName || \"-\") + \"\\n\" +\n    \"📅 \u003cb\u003eวันที่:\u003c/b\u003e \" + (data.date || \"-\") + \"\\n\" +\n    \"⏰ \u003cb\u003eเวร:\u003c/b\u003e \" + shiftThai + \"\\n\" +\n    \"🏥 \u003cb\u003eจุดประจำการ:\u003c/b\u003e \" + (data.location || \"-\") + \"\\n\" +\n    \"📞 \u003cb\u003eเบอร์ติดต่อ:\u003c/b\u003e \" + (data.phone || \"-\") + \"\\n\" +\n    \"📝 \u003cb\u003eหมายเหตุ:\u003c/b\u003e \" + (data.note || \"-\") + \"\\n\" +\n    \"⏱ \u003cb\u003eเวลาบันทึก:\u003c/b\u003e \" + Utilities.formatDate(new Date(), \"Asia/Bangkok\", \"HH:mm:ss\") + \" น.\\n\" +\n    \"━━━━━━━━━━━━━━━━━━━━\\n\" +\n    \"\u003ci\u003e(ส่งจากระบบ Nurse Shift Check-In Web App)\u003c/i\u003e\";\n\n  var url = \"https://api.telegram.org/bot\" + TELEGRAM_TOKEN + \"/sendMessage\";\n  var payload = {\n    method: \"POST\",\n    contentType: \"application/json\",\n    payload: JSON.stringify({\n      chat_id: CHAT_ID,\n      text: message,\n      parse_mode: \"HTML\"\n    }),\n    muteHttpExceptions: true\n  };\n\n  try {\n    var response = UrlFetchApp.fetch(url, payload);\n    var resJson = JSON.parse(response.getContentText());\n    return resJson.ok;\n  } catch (e) {\n    Logger.log(\"Telegram Error: \" + e.message);\n    return false;\n  }\n}\n\n/**\n * ฟังก์ชันดึงและแปลงข้อมูลเวรทั้งหมดจาก Google Sheet เป็น JSON Records สำหรับส่งกลับไปยัง Web App\n */\nfunction getSheetRecords() {\n  var sheet = getTargetSheet();\n  if (!sheet) return [];\n\n  var lastRow = sheet.getLastRow();\n  var lastCol = sheet.getLastColumn();\n  if (lastRow \u003c 2 || lastCol \u003c 1) return [];\n\n  var rangeValues = sheet.getRange(1, 1, lastRow, lastCol).getValues();\n  var headers = rangeValues[0];\n\n  // ค้นหาตำแหน่งคอลัมน์จากชื่อหัวตาราง\n  var colTimestamp = -1;\n  var colFullName = -1;\n  var colFirstName = -1;\n  var colLastName = -1;\n  var colDate = -1;\n  var colPhone = -1;\n  var colShift = -1;\n  var colLocation = -1;\n  var colNote = -1;\n\n  for (var c = 0; c \u003c headers.length; c++) {\n    var h = String(headers[c] || \"\").trim().toLowerCase();\n    if (h.indexOf(\"เวลา\") !== -1 || h.indexOf(\"timestamp\") !== -1) {\n      if (colTimestamp === -1) colTimestamp = c;\n    } else if (h.indexOf(\"ชื่อ\") !== -1 \u0026\u0026 (h.indexOf(\"สกุล\") !== -1 || h.indexOf(\"นามสกุล\") !== -1)) {\n      colFullName = c;\n    } else if (h === \"ชื่อ\" || (h.indexOf(\"ชื่อ\") !== -1 \u0026\u0026 h.indexOf(\"สกุล\") === -1) || h.indexOf(\"first\") !== -1) {\n      if (colFirstName === -1) colFirstName = c;\n    } else if (h === \"นามสกุล\" || (h.indexOf(\"สกุล\") !== -1 \u0026\u0026 h.indexOf(\"ชื่อ\") === -1) || h.indexOf(\"last\") !== -1) {\n      if (colLastName === -1) colLastName = c;\n    } else if (h.indexOf(\"วัน\") !== -1 || h.indexOf(\"date\") !== -1) {\n      if (colDate === -1) colDate = c;\n    } else if (h.indexOf(\"โทร\") !== -1 || h.indexOf(\"phone\") !== -1 || h.indexOf(\"tel\") !== -1) {\n      if (colPhone === -1) colPhone = c;\n    } else if (h.indexOf(\"nurse\") !== -1 || h.indexOf(\"เวร\") !== -1 || h.indexOf(\"ห้อง\") !== -1 || h.indexOf(\"room\") !== -1 || h.indexOf(\"กะ\") !== -1 || h.indexOf(\"shift\") !== -1) {\n      if (colShift === -1) colShift = c;\n    } else if (h.indexOf(\"สถาน\") !== -1 || h.indexOf(\"จุด\") !== -1 || h.indexOf(\"plant\") !== -1 || h.indexOf(\"loc\") !== -1) {\n      if (colLocation === -1) colLocation = c;\n    } else if (h.indexOf(\"หมายเหตุ\") !== -1 || h.indexOf(\"note\") !== -1) {\n      if (colNote === -1) colNote = c;\n    }\n  }\n\n  if (colTimestamp === -1) colTimestamp = 0;\n\n  var records = [];\n\n  for (var r = 1; r \u003c rangeValues.length; r++) {\n    var row = rangeValues[r];\n\n    // ข้ามแถวที่ว่างเปล่าทั้งหมด\n    var hasContent = false;\n    for (var i = 0; i \u003c row.length; i++) {\n      if (String(row[i] || \"\").trim() !== \"\") {\n        hasContent = true;\n        break;\n      }\n    }\n    if (!hasContent) continue;\n\n    // 1. ชื่อพยาบาล\n    var nurseName = \"\";\n    if (colFullName !== -1 \u0026\u0026 row[colFullName]) {\n      nurseName = String(row[colFullName]).trim();\n    } else {\n      var fName = colFirstName !== -1 ? String(row[colFirstName] || \"\").trim() : \"\";\n      var lName = colLastName !== -1 ? String(row[colLastName] || \"\").trim() : \"\";\n      nurseName = (fName + \" \" + lName).trim();\n    }\n    if (!nurseName \u0026\u0026 row[1]) nurseName = String(row[1]).trim();\n    if (!nurseName) continue;\n\n    // 2. วันที่ขึ้นเวร (รองรับทั้ง Date object, String ค.ศ./พ.ศ. และ Timestamp)\n    var rawDate = colDate !== -1 ? row[colDate] : null;\n    var rawTimestamp = row[colTimestamp];\n    var formattedDate = parseToIsoDate(rawDate) || parseToIsoDate(rawTimestamp);\n    if (!formattedDate) {\n      formattedDate = Utilities.formatDate(new Date(), \"Asia/Bangkok\", \"yyyy-MM-dd\");\n    }\n\n    // 3. กะการทำงาน (Day / Night)\n    var shiftRaw = colShift !== -1 ? String(row[colShift] || \"\").toLowerCase() : \"\";\n    if (!shiftRaw) {\n      shiftRaw = row.join(\" \").toLowerCase();\n    }\n    var shift = \"Day\";\n    if (shiftRaw.indexOf(\"ดึก\") !== -1 || shiftRaw.indexOf(\"night\") !== -1 || shiftRaw.indexOf(\"18.00\") !== -1) {\n      shift = \"Night\";\n    } else if (shiftRaw.indexOf(\"เช้า\") !== -1 || shiftRaw.indexOf(\"day\") !== -1 || shiftRaw.indexOf(\"7.00\") !== -1) {\n      shift = \"Day\";\n    }\n\n    // 4. จุดประจำการ\n    var location = \"ห้องพยาบาล (Plant3)\";\n    if (colLocation !== -1 \u0026\u0026 row[colLocation]) {\n      location = String(row[colLocation]).trim();\n    } else if (shiftRaw.indexOf(\"ห้อง 2\") !== -1 || shiftRaw.indexOf(\"ห้องพยาบาล 2\") !== -1 || shiftRaw.indexOf(\"pa\") !== -1) {\n      location = \"ห้องพยาบาล 2 (หลังห้อง PA)\";\n    }\n\n    // 5. เบอร์โทรศัพท์\n    var phone = \"\";\n    if (colPhone !== -1 \u0026\u0026 row[colPhone]) {\n      phone = String(row[colPhone]).replace(/\\D/g, \"\");\n      if (phone.length === 9 || phone.length === 10) {\n        if (!phone.startsWith(\"0\")) phone = \"0\" + phone;\n      }\n    }\n\n    // 6. หมายเหตุ\n    var note = colNote !== -1 ? String(row[colNote] || \"-\").trim() : \"-\";\n\n    // 7. เวลาประทับเวลา\n    var tsStr = \"\";\n    if (rawTimestamp instanceof Date \u0026\u0026 !isNaN(rawTimestamp.getTime())) {\n      tsStr = Utilities.formatDate(rawTimestamp, \"Asia/Bangkok\", \"yyyy-MM-dd HH:mm:ss\");\n    } else {\n      tsStr = String(rawTimestamp || (formattedDate + \" 07:00:00\"));\n    }\n\n    records.push({\n      id: \"SHEET-\" + (r + 1),\n      rowIndex: (r + 1),\n      nurseName: nurseName,\n      date: formattedDate,\n      shift: shift,\n      location: location,\n      phone: phone,\n      note: note || \"-\",\n      timestamp: tsStr,\n      telegramSent: true\n    });\n  }\n\n  return records;\n}\n\n/**\n * แปลงวันที่จาก Date Object หรือ String รูปแบบต่างๆ (ค.ศ. / พ.ศ. / Timestamp) ให้เป็น YYYY-MM-DD\n */\nfunction parseToIsoDate(val) {\n  if (!val) return \"\";\n  if (val instanceof Date \u0026\u0026 !isNaN(val.getTime())) {\n    var yr = val.getFullYear();\n    if (yr \u003e 2400) yr -= 543;\n    var mo = String(val.getMonth() + 1);\n    if (mo.length \u003c 2) mo = \"0\" + mo;\n    var dy = String(val.getDate());\n    if (dy.length \u003c 2) dy = \"0\" + dy;\n    return yr + \"-\" + mo + \"-\" + dy;\n  }\n  \n  var s = String(val).trim();\n  if (!s) return \"\";\n  \n  // ตัดเวลาออกถ้ามี เช่น \"12/11/2026, 10:15:30\" หรือ \"12/11/2569 10:15:30\"\n  var dateStr = s.split(/[,\\s]+/)[0].trim();\n  \n  if (dateStr.indexOf(\"/\") !== -1) {\n    var parts = dateStr.split(\"/\");\n    if (parts.length === 3) {\n      var d = parseInt(parts[0], 10);\n      var m = parseInt(parts[1], 10);\n      var y = parseInt(parts[2], 10);\n      if (y \u003e 2400) y -= 543;\n      var mm = (m \u003c 10 ? \"0\" : \"\") + m;\n      var dd = (d \u003c 10 ? \"0\" : \"\") + d;\n      return y + \"-\" + mm + \"-\" + dd;\n    }\n  } else if (dateStr.indexOf(\"-\") !== -1) {\n    var parts2 = dateStr.split(\"-\");\n    if (parts2.length === 3) {\n      if (parts2[0].length === 4) {\n        var y1 = parseInt(parts2[0], 10);\n        if (y1 \u003e 2400) y1 -= 543;\n        var m1 = parseInt(parts2[1], 10);\n        var d1 = parseInt(parts2[2], 10);\n        var mm1 = (m1 \u003c 10 ? \"0\" : \"\") + m1;\n        var dd1 = (d1 \u003c 10 ? \"0\" : \"\") + d1;\n        return y1 + \"-\" + mm1 + \"-\" + dd1;\n      } else {\n        var d2 = parseInt(parts2[0], 10);\n        var m2 = parseInt(parts2[1], 10);\n        var y2 = parseInt(parts2[2], 10);\n        if (y2 \u003e 2400) y2 -= 543;\n        var mm2 = (m2 \u003c 10 ? \"0\" : \"\") + m2;\n        var dd2 = (d2 \u003c 10 ? \"0\" : \"\") + d2;\n        return y2 + \"-\" + mm2 + \"-\" + dd2;\n      }\n    }\n  }\n  return \"\";\n}\n";
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(code).then(() => {
@@ -2861,8 +2836,10 @@ function switchTab(tabId) {
 
   if (tabId === 'dashboard') {
     renderDashboard();
+    syncRecordsFromGoogleSheet(false);
   } else if (tabId === 'records') {
     renderRecordsTable();
+    syncRecordsFromGoogleSheet(false);
   } else if (tabId === 'roster') {
     renderRosterList();
   }
@@ -2959,3 +2936,6 @@ function setHtml(id, html) {
 
 // Global start
 window.addEventListener('DOMContentLoaded', initApp);
+
+
+
