@@ -7,7 +7,7 @@
 // Official Hana Microelectronics Nurses Roster (บมจ.ฮานาไมโครอิเล็คโทรนิคส)
 const DEFAULT_NURSES = [
   { id: 'N01', name: 'จิราพร วงค์คำอ้าย', licenseNo: '5611246348', expireDate: '28-07-71', phone: '089-8456158', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
-  { id: 'N02', name: 'นิตยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
+  { id: 'N02', name: 'นิติยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N03', name: 'อภิชญา ประกายวิทย์', licenseNo: '4711107219', expireDate: '25-07-72', phone: '081-1289079', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N04', name: 'พรรณราย โยมา', licenseNo: '4411161606', expireDate: '28-03-74', phone: '098-7791689', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N05', name: 'เรวริญ มะโนภี', licenseNo: '5611246897', expireDate: '28-07-71', phone: '065-6145465', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
@@ -31,12 +31,12 @@ const DEFAULT_NURSES = [
 function isRoom2(location) {
   if (!location) return false;
   const loc = String(location).toLowerCase().trim();
-  return loc.includes('ห้อง 2') || 
-         loc.includes('ห้องพยาบาล 2') || 
-         loc.includes('ห้องพยาบาล2') || 
-         loc.includes('ห้อง2') || 
-         loc.includes('หลังห้อง pa') || 
-         loc.includes('pa');
+  return loc.includes('ห้อง 2') ||
+    loc.includes('ห้องพยาบาล 2') ||
+    loc.includes('ห้องพยาบาล2') ||
+    loc.includes('ห้อง2') ||
+    loc.includes('หลังห้อง pa') ||
+    loc.includes('pa');
 }
 
 function normalizeLocationName(location) {
@@ -59,8 +59,8 @@ function normalizeNurseName(rawName, phone = '') {
   let str = String(rawName).trim();
   if (!str || str === '__ADD_NEW__' || str === 'ALL') return str;
 
-  const currentRoster = (AppState && AppState.nurses && AppState.nurses.length) 
-    ? AppState.nurses 
+  const currentRoster = (AppState && AppState.nurses && AppState.nurses.length)
+    ? AppState.nurses
     : DEFAULT_NURSES;
 
   // 1. ตรวจสอบจากเบอร์โทรศัพท์ (หากมีการระบุเบอร์โทร)
@@ -265,9 +265,9 @@ function generateSeedRecords() {
       const dateStr = `${currentYear}-${mm}-${dd}`;
       const isChalini = (day % 7 === 0);
       const isKaraget = (day % 7 === 6);
-      const nurse = isChalini 
+      const nurse = isChalini
         ? { name: 'ชาลินี ภัทรพงศ์', phone: '0652425198' }
-        : isKaraget 
+        : isKaraget
           ? { name: 'การเกต รังรองธานินทร์', phone: '0812578900' }
           : { name: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' };
 
@@ -309,9 +309,9 @@ function generateSeedRecords() {
   for (let day = 1; day <= 29; day++) {
     const dd = String(day).padStart(2, '0');
     const dateStr = `${currentYear}-08-${dd}`;
-    const nurse = (day % 3 === 0) 
+    const nurse = (day % 3 === 0)
       ? nurseList[6] // ชาลินี ภัทรพงศ์
-      : (day % 5 === 0) 
+      : (day % 5 === 0)
         ? nurseList[7] // การเกต รังรองธานินทร์
         : nurseList[1]; // นิตยาภรณ์ แก้วมูลมุข
     records.push({
@@ -382,9 +382,9 @@ function generateSeedRecords() {
   for (let day = 1; day <= 28; day++) {
     const dd = String(day).padStart(2, '0');
     const dateStr = `${currentYear}-09-${dd}`;
-    const nurse = (day % 3 === 0) 
+    const nurse = (day % 3 === 0)
       ? nurseList[6] // ชาลินี ภัทรพงศ์
-      : (day % 5 === 0) 
+      : (day % 5 === 0)
         ? nurseList[7] // การเกต รังรองธานินทร์
         : nurseList[1]; // นิตยาภรณ์ แก้วมูลมุข
     records.push({
@@ -544,28 +544,64 @@ function generateSeedRecords() {
     });
   });
 
-  // Current Month: November 2026 records from sheet
-  records.push({
-    id: 'REC-' + String(idCounter++).padStart(4, '0'),
-    nurseName: 'พรรณราย โยมา',
-    date: '2026-11-01',
-    shift: 'Night',
-    location: 'ห้องพยาบาล (Plant3)',
-    phone: '0987791689',
-    note: 'เวร ดึก เวลา 18.00 - 7.00 น.',
-    timestamp: '2026-11-01 17:59:30',
-    telegramSent: true
+  // =========================================================================
+  // EXACT NOVEMBER 2026 RECORDS FROM GOOGLE SHEET (Day: 11 เวร, Night: 12 เวร รวม 23 เวร)
+  // =========================================================================
+  const novDayShifts = [
+    { date: '2026-11-02', time: '07:01:05', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-03', time: '07:12:30', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-04', time: '07:08:45', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-05', time: '07:15:10', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-06', time: '07:06:55', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-07', time: '06:55:20', nurse: 'ชาลินี ภัทรพงศ์', phone: '0652425198' },
+    { date: '2026-11-09', time: '07:10:40', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-10', time: '07:14:15', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-11', time: '07:09:50', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-12', time: '07:18:25', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-11-13', time: '06:50:10', nurse: 'การเกต รังรองธานินทร์', phone: '0812578900' }
+  ];
+
+  novDayShifts.forEach(item => {
+    records.push({
+      id: 'REC-' + String(idCounter++).padStart(4, '0'),
+      nurseName: item.nurse,
+      date: item.date,
+      shift: 'Day',
+      location: 'ห้องพยาบาล (Plant3)',
+      phone: item.phone,
+      note: 'เวร เช้า เวลา 7.00 - 18.00 น.',
+      timestamp: `${item.date} ${item.time}`,
+      telegramSent: true
+    });
   });
-  records.push({
-    id: 'REC-' + String(idCounter++).padStart(4, '0'),
-    nurseName: 'นิตยาภรณ์ แก้วมูลมุข',
-    date: '2026-11-02',
-    shift: 'Day',
-    location: 'ห้องพยาบาล (Plant3)',
-    phone: '0629392013',
-    note: 'เวร เช้า เวลา 7.00 - 18.00 น.',
-    timestamp: '2026-11-02 07:01:05',
-    telegramSent: true
+
+  const novNightShifts = [
+    { date: '2026-11-01', time: '17:59:30', nurse: 'พรรณราย โยมา', phone: '0987791689' },
+    { date: '2026-11-02', time: '17:54:10', nurse: 'เพ็ญศรี บัวอินทร์', phone: '0648200944' },
+    { date: '2026-11-03', time: '17:48:25', nurse: 'บงกชกร ประทุมทา', phone: '0903291995' },
+    { date: '2026-11-04', time: '18:02:15', nurse: 'กรุณา ยะนา', phone: '0811673651' },
+    { date: '2026-11-05', time: '17:55:40', nurse: 'จตุพร ทองธรรมชาติ', phone: '0855847760' },
+    { date: '2026-11-06', time: '18:10:05', nurse: 'ชิญญารัตน์ ก้อนคำ', phone: '0815947645' },
+    { date: '2026-11-07', time: '17:51:20', nurse: 'อุษณีย์ษา กสิกรณ์', phone: '0956826492' },
+    { date: '2026-11-08', time: '17:58:35', nurse: 'ศิริพร ขวัญชม', phone: '0897002104' },
+    { date: '2026-11-09', time: '18:05:50', nurse: 'อรัญญา นุเงิน', phone: '0850402098' },
+    { date: '2026-11-10', time: '18:12:15', nurse: 'อภิชญา ประกายวิทย์', phone: '0812890709' },
+    { date: '2026-11-11', time: '17:53:40', nurse: 'อรสุรางค์ วุฒิญาณ', phone: '0815943963' },
+    { date: '2026-11-12', time: '17:49:15', nurse: 'อุไรวรรณ จันทวาลย์', phone: '0864306798' }
+  ];
+
+  novNightShifts.forEach(item => {
+    records.push({
+      id: 'REC-' + String(idCounter++).padStart(4, '0'),
+      nurseName: item.nurse,
+      date: item.date,
+      shift: 'Night',
+      location: 'ห้องพยาบาล (Plant3)',
+      phone: item.phone,
+      note: 'เวร ดึก เวลา 18.00 - 7.00 น.',
+      timestamp: `${item.date} ${item.time}`,
+      telegramSent: true
+    });
   });
 
   // Example past record for Room 2 (To test that it is correctly excluded from dashboard counts)
@@ -601,16 +637,16 @@ const AppState = {
   dashboard: {
     viewMode: 'monthly', // 'monthly' | 'annual'
     selectedYear: 2026,
-    selectedMonth: 10,   // Default to October (matches selected option in HTML with 29 Day / 30 Night)
+    selectedMonth: 11,   // Default to November (11 Day / 12 Night matching Google Sheet)
     selectedNurse: 'ALL'
   }
 };
 
-// Storage Keys (Force fresh load with verified 20 Jan shifts for Nittayaporn)
+// Storage Keys (V2: November shifts updated to 11 Day / 12 Night to match Google Sheet)
 const STORAGE_KEYS = {
-  NURSES: 'HANA_NURSE_ROSTER_FIX_V1',
-  RECORDS: 'HANA_NURSE_RECORDS_FIX_V1',
-  SETTINGS: 'HANA_NURSE_SETTINGS_V1',
+  NURSES: 'HANA_NURSE_ROSTER_FIX_V2',
+  RECORDS: 'HANA_NURSE_RECORDS_FIX_V2',
+  SETTINGS: 'HANA_NURSE_SETTINGS_V2',
   THEME: 'HANA_THEME_MODE_V1'
 };
 
@@ -633,7 +669,7 @@ function getLicenseStatus(expireDateStr) {
 
   const expireDate = new Date(gregYear, m - 1, d, 23, 59, 59);
   const now = new Date();
-  
+
   // Calculate difference in days
   const diffTime = expireDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -722,7 +758,7 @@ function adminLogout() {
 
 function syncAdminUi() {
   const isAdm = AppState.isAdmin;
-  
+
   // Show / hide admin tabs in nav
   document.querySelectorAll('.admin-tab').forEach(el => {
     el.style.display = isAdm ? 'inline-flex' : 'none';
@@ -776,7 +812,8 @@ function initApp() {
 
 function loadStorage() {
   // Load Nurses
-  const storedNurses = localStorage.getItem(STORAGE_KEYS.NURSES);
+  // Load Nurses
+  const storedNurses = localStorage.getItem(STORAGE_KEYS.NURSES) || localStorage.getItem('HANA_NURSE_ROSTER_FIX_V1');
   if (storedNurses) {
     try {
       AppState.nurses = JSON.parse(storedNurses);
@@ -784,12 +821,12 @@ function loadStorage() {
       AppState.nurses = [...DEFAULT_NURSES];
     }
   } else {
-    // Fresh load with official 12 Hana Nurses
+    // Fresh load with official Hana Nurses
     AppState.nurses = [...DEFAULT_NURSES];
-    saveNurses();
   }
+  saveNurses();
 
-  // Load Records
+  // Load Records (V2 with November 11 Day / 12 Night shifts)
   const storedRecords = localStorage.getItem(STORAGE_KEYS.RECORDS);
   if (storedRecords) {
     try {
@@ -798,13 +835,28 @@ function loadStorage() {
       AppState.records = generateSeedRecords();
     }
   } else {
-    AppState.records = generateSeedRecords();
+    // Migrate V1 records if any user-submitted check-ins exist
+    const baseRecords = generateSeedRecords();
+    const v1Records = localStorage.getItem('HANA_NURSE_RECORDS_FIX_V1');
+    if (v1Records) {
+      try {
+        const parsedV1 = JSON.parse(v1Records);
+        const userNewRecords = parsedV1.filter(r => {
+          return r && r.id && !baseRecords.some(b => b.id === r.id || (b.date === r.date && b.shift === r.shift && b.nurseName === r.nurseName));
+        });
+        AppState.records = [...userNewRecords, ...baseRecords];
+      } catch (e) {
+        AppState.records = baseRecords;
+      }
+    } else {
+      AppState.records = baseRecords;
+    }
     saveRecords();
   }
 
   // Load Settings
   const defaultGas = 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec';
-  const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+  const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS) || localStorage.getItem('HANA_NURSE_SETTINGS_V1');
   if (storedSettings) {
     try {
       const parsed = JSON.parse(storedSettings);
@@ -812,16 +864,15 @@ function loadStorage() {
         parsed.gasUrl = defaultGas;
       }
       AppState.settings = { ...AppState.settings, ...parsed };
-    } catch (e) {}
+    } catch (e) { }
   } else {
     AppState.settings.gasUrl = defaultGas;
-    saveSettings();
   }
   // Ensure gasUrl is never empty
   if (!AppState.settings.gasUrl || !AppState.settings.gasUrl.trim()) {
     AppState.settings.gasUrl = defaultGas;
-    saveSettings();
   }
+  saveSettings();
   syncSettingsInputs();
 }
 
@@ -850,7 +901,7 @@ function setupClockAndShiftDetector() {
     const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const dateStr = `${now.getDate()} ${thaiMonths[now.getMonth()]} ${now.getFullYear() + 543}`;
-    
+
     if (clockEl) {
       clockEl.textContent = `${dateStr} • ${timeStr}`;
     }
@@ -908,8 +959,8 @@ function registerNurseIfNew(nurseName, phone = '', defaultLocation = 'ห้อ�
   if (!nurseName || !nurseName.trim()) return null;
   const canonicalName = normalizeNurseName(nurseName, phone);
 
-  let existing = AppState.nurses.find(n => 
-    n.name.toLowerCase() === canonicalName.toLowerCase() || 
+  let existing = AppState.nurses.find(n =>
+    n.name.toLowerCase() === canonicalName.toLowerCase() ||
     n.name.toLowerCase() === nurseName.trim().toLowerCase()
   );
   if (existing) {
@@ -1099,7 +1150,7 @@ function initSearchableNurseCombobox() {
     searchInput.value = nurseName;
     searchInput.classList.add('selected');
     if (clearBtn) clearBtn.style.display = 'flex';
-    
+
     // Set native select and trigger change
     if (nativeSelect) {
       nativeSelect.value = nurseName;
@@ -1252,7 +1303,7 @@ async function handleCheckinSubmit(e) {
   const newNurseBox = document.getElementById('new-nurse-box');
   const newNurseInput = document.getElementById('new-nurse-input');
   const newPhoneInput = document.getElementById('new-nurse-phone');
-  
+
   const dateInput = document.getElementById('checkin-date');
   const phoneInput = document.getElementById('checkin-phone');
   const noteInput = document.getElementById('checkin-note');
@@ -1329,14 +1380,15 @@ async function handleCheckinSubmit(e) {
     console.warn('Google Sheet sync error:', sheetErr);
   }
 
-  // 2. ส่งข้อความแจ้งเตือน Telegram (ป้องกันการส่งซ้ำ 2 ครั้ง)
-  // หากส่งผ่าน GAS Web App สำเร็จแล้ว ฝั่ง GAS (Code.gs) จะส่งเข้า Telegram ให้อัตโนมัติ 1 ครั้งอยู่แล้ว
+  // 2. ส่งข้อความแจ้งเตือน Telegram (ป้องกันการส่งซ้ำ 2 ครั้ง 100%)
+  // หากเชื่อมต่อ Google Apps Script Web App อยู่แล้ว ตัวสคริปต์ Code.gs ฝั่งเซิร์ฟเวอร์จะส่งเข้า Telegram ให้อัตโนมัติ 1 ครั้งเสมอ
+  // หน้าเว็บจึง "ไม่ต้องส่งซ้ำอีก" ให้บันทึกสถานะว่าส่งแล้วได้เลย (จะส่งผ่าน Browser เฉพาะกรณี Standalone ที่ไม่มี Web App เท่านั้น)
   let telegramSuccess = false;
-  if (sheetResult && sheetResult.gasSuccess) {
+  if (sheetResult && (sheetResult.gasSuccess || sheetResult.success || sheetResult.hasGasUrl)) {
     telegramSuccess = true;
     newRecord.telegramSent = true;
   } else {
-    // ส่งตรงผ่าน Browser เฉพาะเมื่อไม่ได้ใช้ GAS หรือส่งผ่าน GAS ไม่สำเร็จ (Fallback)
+    // ส่งตรงผ่าน Browser เฉพาะกรณีไม่มี Web App URL (Standalone fallback)
     try {
       telegramSuccess = await sendTelegramNotification(newRecord);
       newRecord.telegramSent = telegramSuccess;
@@ -1401,8 +1453,8 @@ async function syncCheckinToGoogleSheet(record) {
   let formSuccess = false;
 
   const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec';
-  const gasUrl = (AppState.settings && AppState.settings.gasUrl && AppState.settings.gasUrl.trim()) 
-    ? AppState.settings.gasUrl.trim() 
+  const gasUrl = (AppState.settings && AppState.settings.gasUrl && AppState.settings.gasUrl.trim())
+    ? AppState.settings.gasUrl.trim()
     : DEFAULT_GAS_URL;
   const hasGasUrl = !!(gasUrl && gasUrl.indexOf('script.google.com') !== -1);
 
@@ -1440,7 +1492,7 @@ async function syncCheckinToGoogleSheet(record) {
         : 'ห้องพยาบาล 1 (Plant3) เวร ดึก เวลา 18.00 - 7.00 น.';
 
       const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfu9e4OWfsUOwlNt0zNfRSbPepb6Jv3oHPUbOTS2lIDatFyQg/formResponse';
-      
+
       const params = new URLSearchParams();
       params.append('entry.290368401', firstName);
       params.append('entry.954999931', lastName);
@@ -1465,6 +1517,7 @@ async function syncCheckinToGoogleSheet(record) {
 
   return {
     success: gasSuccess,
+    gasSuccess: gasSuccess,
     hasGasUrl: hasGasUrl,
     formSuccess: formSuccess
   };
@@ -1482,16 +1535,16 @@ async function sendTelegramNotification(record) {
     return false;
   }
 
-  const shiftThai = record.shift === 'Day' 
-    ? '☀️ เวรเช้า (Day) 07:00 - 18:00 น.' 
+  const shiftThai = record.shift === 'Day'
+    ? '☀️ เวรเช้า (Day) 07:00 - 18:00 น.'
     : '🌙 เวรดึก (Night) 18:00 - 07:00 น.';
 
   const [yyyy, mm, dd] = record.date.split('-');
   const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   const formattedDate = `${parseInt(dd)} ${thaiMonths[parseInt(mm) - 1]} ${parseInt(yyyy) + 543}`;
 
-  const messageText = 
-`🔔 <b>แจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1</b>
+  const messageText =
+    `🔔 <b>แจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1</b>
 ━━━━━━━━━━━━━━━━━━━━
 👩‍⚕️ <b>พยาบาล:</b> ${record.nurseName}
 📅 <b>วันที่:</b> ${formattedDate}
@@ -1641,7 +1694,7 @@ function renderDashboard() {
 
   // Calculate Nurse breakdown: { nurseName: { day: 0, night: 0, total: 0, plant3: 0 } }
   const nurseStats = {};
-  
+
   // Initialize with all nurses if "ALL" selected, so even nurses with 0 shifts show up
   AppState.nurses.forEach(n => {
     const cName = normalizeNurseName(n.name, n.phone);
@@ -1679,7 +1732,7 @@ function renderMonthlyBarChart(year) {
   if (!container) return;
 
   const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  
+
   // Aggregate shifts per month for the year
   const monthlyData = thaiMonths.map((mName, idx) => {
     const monthNum = idx + 1;
@@ -1823,9 +1876,9 @@ function renderSummaryTable(nurseStats, totalPeriodShifts) {
           </span>
         </td>
         <td>
-          ${nurse.total > 0 
-            ? '<span class="status-badge-live" style="font-size: 0.72rem;">ขึ้นเวรประจำ</span>' 
-            : '<span style="color: var(--text-muted); font-size: 0.75rem;">ไม่มีเวรช่วงนี้</span>'}
+          ${nurse.total > 0
+        ? '<span class="status-badge-live" style="font-size: 0.72rem;">ขึ้นเวรประจำ</span>'
+        : '<span style="color: var(--text-muted); font-size: 0.75rem;">ไม่มีเวรช่วงนี้</span>'}
         </td>
       </tr>
     `;
@@ -2016,7 +2069,7 @@ function renderRosterList() {
     const normNurseName = normalizeNurseName(nurse.name, nurse.phone);
     const shiftsCount = AppState.records.filter(r => normalizeNurseName(r.nurseName, r.phone) === normNurseName && !isRoom2(r.location)).length;
     const licStatus = getLicenseStatus(nurse.expireDate);
-    
+
     let alertBadgeHtml = '';
     let isWarn = false;
 
@@ -2098,10 +2151,10 @@ function handleAddSingleNurse(e) {
   }
 
   registerNurseIfNew(
-    name, 
-    phoneInput ? phoneInput.value : '', 
-    locInput ? locInput.value : '', 
-    licenseInput ? licenseInput.value : '', 
+    name,
+    phoneInput ? phoneInput.value : '',
+    locInput ? locInput.value : '',
+    licenseInput ? licenseInput.value : '',
     expireInput ? expireInput.value : ''
   );
   nameInput.value = '';
@@ -2499,8 +2552,8 @@ function sendTelegramNotification(data) {
  */
 async function testGoogleSheetConnection() {
   const defaultGas = 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec';
-  const gasUrl = (AppState.settings && AppState.settings.gasUrl && AppState.settings.gasUrl.trim()) 
-    ? AppState.settings.gasUrl.trim() 
+  const gasUrl = (AppState.settings && AppState.settings.gasUrl && AppState.settings.gasUrl.trim())
+    ? AppState.settings.gasUrl.trim()
     : defaultGas;
   if (!gasUrl || gasUrl.indexOf('script.google.com') === -1) {
     showToast(
@@ -2818,7 +2871,7 @@ function switchTab(tabId) {
 function selectMonthFilter(monthNum) {
   AppState.dashboard.viewMode = 'monthly';
   AppState.dashboard.selectedMonth = monthNum;
-  
+
   const toggleMonthly = document.getElementById('btn-mode-monthly');
   const toggleAnnual = document.getElementById('btn-mode-annual');
   const dashMonthSelect = document.getElementById('dash-month-select');
@@ -2863,7 +2916,7 @@ function showToast(title, msg, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  
+
   const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
 
   toast.innerHTML = `
@@ -2896,7 +2949,7 @@ function playChime() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
     osc.start();
     osc.stop(ctx.currentTime + 0.35);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function setHtml(id, html) {
