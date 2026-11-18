@@ -7,7 +7,7 @@
 // Official Hana Microelectronics Nurses Roster (บมจ.ฮานาไมโครอิเล็คโทรนิคส)
 const DEFAULT_NURSES = [
   { id: 'N01', name: 'จิราพร วงค์คำอ้าย', licenseNo: '5611246348', expireDate: '28-07-71', phone: '089-8456158', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
-  { id: 'N02', name: 'นิติยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
+  { id: 'N02', name: 'นิตยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N03', name: 'อภิชญา ประกายวิทย์', licenseNo: '4711107219', expireDate: '25-07-72', phone: '081-1289079', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N04', name: 'พรรณราย โยมา', licenseNo: '4411161606', expireDate: '28-03-69', phone: '098-7791689', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N05', name: 'เรวริญ มะโนภี', licenseNo: '5611246897', expireDate: '28-07-71', phone: '065-6145465', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
@@ -53,10 +53,10 @@ function normalizeLocationName(location) {
 /**
  * Smart Nurse Name Normalization & Disambiguation
  * ระบบรวมและเทียบชื่อพยาบาลอัจฉริยะ:
- * 1. ตรวจสอบเบอร์โทรศัพท์ (เช่น 0629392013 -> นิติยาภรณ์ แก้วมูลมุข)
+ * 1. ตรวจสอบเบอร์โทรศัพท์ (เช่น 0629392013 -> นิตยาภรณ์ แก้วมูลมุข)
  * 2. ตัดคำนำหน้า เช่น นางสาว, น.ส., นส., นาง, นาย, คุณ, พว., RN
  * 3. ลดช่องว่างซ้ำซ้อน (Multiple spaces -> Single space)
- * 4. รองรับการพิมพ์เฉพาะชื่อจริง (เช่น นิติยาภรณ์, เพ็ญศรี, การเกต)
+ * 4. รองรับการพิมพ์เฉพาะชื่อจริง (เช่น นิตยาภรณ์, เพ็ญศรี, การเกต)
  * 5. รองรับคำสะกดคลาดเคลื่อน / Typo พบบ่อย (เช่น อุษณิษา -> อุษณีย์ษา กสิกรณ์, อภิชยา -> อภิชญา ประกายวิทย์)
  */
 function normalizeNurseName(rawName, phone = '') {
@@ -167,7 +167,7 @@ function generateSeedRecords() {
   ];
 
   // =========================================================================
-  // 1. EXACT JANUARY 2026: นิติยาภรณ์ แก้วมูลมุข ตรงตาม Google Sheet (20 เวร Day)
+  // 1. EXACT JANUARY 2026: นิตยาภรณ์ แก้วมูลมุข ตรงตาม Google Sheet (20 เวร Day)
   // รวมยอดเดือน มกราคม 2569: เวรเช้า (Day) 25 วัน, เวรดึก (Night) 25 วัน (รวม 50 วัน)
   // =========================================================================
   const janNittayapornDays = [
@@ -193,12 +193,12 @@ function generateSeedRecords() {
     { day: 31, time: '07:08:31' }
   ];
 
-  // บันทึก 20 เวรเช้าของ นิติยาภรณ์ แก้วมูลมุข ในเดือนมกราคม
+  // บันทึก 20 เวรเช้าของ นิตยาภรณ์ แก้วมูลมุข ในเดือนมกราคม
   janNittayapornDays.forEach(item => {
     const dd = String(item.day).padStart(2, '0');
     records.push({
       id: 'REC-' + String(idCounter++).padStart(4, '0'),
-      nurseName: 'นิติยาภรณ์ แก้วมูลมุข',
+      nurseName: 'นิตยาภรณ์ แก้วมูลมุข',
       date: `2026-01-${dd}`,
       shift: 'Day',
       location: 'ห้องพยาบาล (Plant3)',
@@ -232,7 +232,7 @@ function generateSeedRecords() {
     });
   });
 
-  // เวรดึก 25 วันในเดือนมกราคม (หมุนเวียนเฉพาะพยาบาลเวรดึก นิติยาภรณ์ไม่ขึ้นเวรดึก)
+  // เวรดึก 25 วันในเดือนมกราคม (หมุนเวียนเฉพาะพยาบาลเวรดึก นิตยาภรณ์ไม่ขึ้นเวรดึก)
   for (let day = 1; day <= 25; day++) {
     const dd = String(day).padStart(2, '0');
     const nurse = nightNursesPool[(day - 1) % nightNursesPool.length];
@@ -251,7 +251,7 @@ function generateSeedRecords() {
 
   // =========================================================================
   // 2. FEBRUARY - JULY 2026 (ตรงตามตารางสรุปหลัก)
-  // เวรเช้า (Day): นิติยาภรณ์ แก้วมูลมุข เป็นพยาบาลประจำหลัก (~80-85%) สลับเวรแทนโดย ชาลินี และ การเกต
+  // เวรเช้า (Day): นิตยาภรณ์ แก้วมูลมุข เป็นพยาบาลประจำหลัก (~80-85%) สลับเวรแทนโดย ชาลินี และ การเกต
   // เวรดึก (Night): หมุนเวียนในทีมพยาบาลเวรดึก
   // =========================================================================
   const febToJulSchedule = [
@@ -274,7 +274,7 @@ function generateSeedRecords() {
         ? { name: 'ชาลินี ภัทรพงศ์', phone: '0652425198' }
         : isKaraget 
           ? { name: 'การเกต รังรองธานินทร์', phone: '0812578900' }
-          : { name: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' };
+          : { name: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' };
 
       records.push({
         id: 'REC-' + String(idCounter++).padStart(4, '0'),
@@ -318,7 +318,7 @@ function generateSeedRecords() {
       ? nurseList[6] // ชาลินี ภัทรพงศ์
       : (day % 5 === 0) 
         ? nurseList[7] // การเกต รังรองธานินทร์
-        : nurseList[1]; // นิติยาภรณ์ แก้วมูลมุข
+        : nurseList[1]; // นิตยาภรณ์ แก้วมูลมุข
     records.push({
       id: 'REC-' + String(idCounter++).padStart(4, '0'),
       nurseName: nurse.name,
@@ -391,7 +391,7 @@ function generateSeedRecords() {
       ? nurseList[6] // ชาลินี ภัทรพงศ์
       : (day % 5 === 0) 
         ? nurseList[7] // การเกต รังรองธานินทร์
-        : nurseList[1]; // นิติยาภรณ์ แก้วมูลมุข
+        : nurseList[1]; // นิตยาภรณ์ แก้วมูลมุข
     records.push({
       id: 'REC-' + String(idCounter++).padStart(4, '0'),
       nurseName: nurse.name,
@@ -457,35 +457,35 @@ function generateSeedRecords() {
   // EXACT OCTOBER 2026 RECORDS FROM GOOGLE SHEET (Day: 29 คน, Night: 30 คน)
   // =========================================================================
   const octDayShifts = [
-    { date: '2026-10-01', time: '07:06:48', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-02', time: '07:16:52', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-03', time: '07:19:01', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-05', time: '07:22:40', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-06', time: '07:22:40', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-07', time: '07:20:04', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-08', time: '07:16:38', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-09', time: '07:23:50', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-01', time: '07:06:48', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-02', time: '07:16:52', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-03', time: '07:19:01', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-05', time: '07:22:40', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-06', time: '07:22:40', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-07', time: '07:20:04', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-08', time: '07:16:38', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-09', time: '07:23:50', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
     { date: '2026-10-10', time: '06:54:43', nurse: 'ชาลินี ภัทรพงศ์', phone: '0652425198' },
     { date: '2026-10-11', time: '06:59:16', nurse: 'การเกต รังรองธานินทร์', phone: '0812878900' },
-    { date: '2026-10-12', time: '07:14:38', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-13', time: '07:17:22', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-14', time: '07:25:10', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-15', time: '07:17:16', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-16', time: '07:19:27', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-17', time: '07:21:41', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-19', time: '07:16:05', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-20', time: '07:19:25', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-21', time: '07:12:49', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-22', time: '07:19:55', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-23', time: '07:08:11', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-12', time: '07:14:38', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-13', time: '07:17:22', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-14', time: '07:25:10', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-15', time: '07:17:16', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-16', time: '07:19:27', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-17', time: '07:21:41', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-19', time: '07:16:05', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-20', time: '07:19:25', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-21', time: '07:12:49', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-22', time: '07:19:55', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-23', time: '07:08:11', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
     { date: '2026-10-24', time: '06:54:35', nurse: 'ชาลินี ภัทรพงศ์', phone: '0652425198' },
     { date: '2026-10-25', time: '06:42:43', nurse: 'การเกต รังรองธานินทร์', phone: '0812878900' },
-    { date: '2026-10-26', time: '07:07:34', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-27', time: '07:16:31', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-28', time: '07:19:11', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-29', time: '07:19:39', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-30', time: '07:30:51', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
-    { date: '2026-10-31', time: '07:20:59', nurse: 'นิติยาภรณ์ แก้วมูลมุข', phone: '0629392013' }
+    { date: '2026-10-26', time: '07:07:34', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-27', time: '07:16:31', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-28', time: '07:19:11', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-29', time: '07:19:39', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-30', time: '07:30:51', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' },
+    { date: '2026-10-31', time: '07:20:59', nurse: 'นิตยาภรณ์ แก้วมูลมุข', phone: '0629392013' }
   ];
 
   octDayShifts.forEach(item => {
@@ -563,7 +563,7 @@ function generateSeedRecords() {
   });
   records.push({
     id: 'REC-' + String(idCounter++).padStart(4, '0'),
-    nurseName: 'นิติยาภรณ์ แก้วมูลมุข',
+    nurseName: 'นิตยาภรณ์ แก้วมูลมุข',
     date: '2026-11-02',
     shift: 'Day',
     location: 'ห้องพยาบาล (Plant3)',
@@ -1334,13 +1334,20 @@ async function handleCheckinSubmit(e) {
     console.warn('Google Sheet sync error:', sheetErr);
   }
 
-  // 2. ส่งข้อความแจ้งเตือน Telegram
+  // 2. ส่งข้อความแจ้งเตือน Telegram (ป้องกันการส่งซ้ำ 2 ครั้ง)
+  // หากส่งผ่าน GAS Web App สำเร็จแล้ว ฝั่ง GAS (Code.gs) จะส่งเข้า Telegram ให้อัตโนมัติ 1 ครั้งอยู่แล้ว
   let telegramSuccess = false;
-  try {
-    telegramSuccess = await sendTelegramNotification(newRecord);
-    newRecord.telegramSent = telegramSuccess;
-  } catch (err) {
-    console.warn('Telegram send failed:', err);
+  if (sheetResult && sheetResult.gasSuccess) {
+    telegramSuccess = true;
+    newRecord.telegramSent = true;
+  } else {
+    // ส่งตรงผ่าน Browser เฉพาะเมื่อไม่ได้ใช้ GAS หรือส่งผ่าน GAS ไม่สำเร็จ (Fallback)
+    try {
+      telegramSuccess = await sendTelegramNotification(newRecord);
+      newRecord.telegramSent = telegramSuccess;
+    } catch (err) {
+      console.warn('Telegram send failed:', err);
+    }
   }
 
   // Save record to state
@@ -1419,43 +1426,46 @@ async function syncCheckinToGoogleSheet(record) {
     }
   }
 
-  // 2. พยายามส่งเข้า Google Form Response URL คู่ขนานไปด้วย
-  try {
-    const fullName = (record.nurseName || '').trim();
-    const parts = fullName.split(/\s+/);
-    const firstName = parts[0] || fullName;
-    const lastName = parts.slice(1).join(' ') || '';
+  // 2. พยายามส่งเข้า Google Form Response URL เฉพาะกรณีที่ GAS Web App ไม่สำเร็จเท่านั้น (Fallback)
+  // เพื่อป้องกันข้อมูลลง Google Sheet ซ้ำซ้อน และป้องกัน Telegram เด้งซ้ำ
+  if (!gasSuccess) {
+    try {
+      const fullName = (record.nurseName || '').trim();
+      const parts = fullName.split(/\s+/);
+      const firstName = parts[0] || fullName;
+      const lastName = parts.slice(1).join(' ') || '';
 
-    const dateStr = record.date || new Date().toISOString().split('T')[0];
-    const [yyyy, mm, dd] = dateStr.split('-');
-    const cleanPhone = (record.phone || '').replace(/\D/g, '');
-    const beYear = String(parseInt(yyyy, 10) + 543);
+      const dateStr = record.date || new Date().toISOString().split('T')[0];
+      const [yyyy, mm, dd] = dateStr.split('-');
+      const cleanPhone = (record.phone || '').replace(/\D/g, '');
+      const beYear = String(parseInt(yyyy, 10) + 543);
 
-    let nurseRoomChoice = record.shift === 'Day'
-      ? 'ห้องพยาบาล 1 (Plant3) เวร เช้า เวลา 7.00 - 18.00 น.'
-      : 'ห้องพยาบาล 1 (Plant3) เวร ดึก เวลา 18.00 - 7.00 น.';
+      let nurseRoomChoice = record.shift === 'Day'
+        ? 'ห้องพยาบาล 1 (Plant3) เวร เช้า เวลา 7.00 - 18.00 น.'
+        : 'ห้องพยาบาล 1 (Plant3) เวร ดึก เวลา 18.00 - 7.00 น.';
 
-    const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfu9e4OWfsUOwlNt0zNfRSbPepb6Jv3oHPUbOTS2lIDatFyQg/formResponse';
-    
-    const params = new URLSearchParams();
-    params.append('entry.290368401', firstName);
-    params.append('entry.954999931', lastName);
-    params.append('entry.1400208557_year', beYear);
-    params.append('entry.1400208557_month', String(parseInt(mm, 10)));
-    params.append('entry.1400208557_day', String(parseInt(dd, 10)));
-    params.append('entry.1400208557', `${beYear}-${mm}-${dd}`);
-    params.append('entry.238999744', cleanPhone);
-    params.append('entry.13771630', nurseRoomChoice);
+      const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSfu9e4OWfsUOwlNt0zNfRSbPepb6Jv3oHPUbOTS2lIDatFyQg/formResponse';
+      
+      const params = new URLSearchParams();
+      params.append('entry.290368401', firstName);
+      params.append('entry.954999931', lastName);
+      params.append('entry.1400208557_year', beYear);
+      params.append('entry.1400208557_month', String(parseInt(mm, 10)));
+      params.append('entry.1400208557_day', String(parseInt(dd, 10)));
+      params.append('entry.1400208557', `${beYear}-${mm}-${dd}`);
+      params.append('entry.238999744', cleanPhone);
+      params.append('entry.13771630', nurseRoomChoice);
 
-    await fetch(formUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
-    });
-    formSuccess = true;
-  } catch (err) {
-    console.warn('Google Form auto-sync error:', err);
+      await fetch(formUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+      });
+      formSuccess = true;
+    } catch (err) {
+      console.warn('Google Form auto-sync error:', err);
+    }
   }
 
   return {
