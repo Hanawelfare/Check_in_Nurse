@@ -7,7 +7,7 @@
 // Official Hana Microelectronics Nurses Roster (บมจ.ฮานาไมโครอิเล็คโทรนิคส)
 const DEFAULT_NURSES = [
   { id: 'N01', name: 'จิราพร วงค์คำอ้าย', licenseNo: '5611246348', expireDate: '28-07-71', phone: '089-8456158', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
-  { id: 'N02', name: 'นิตยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
+  { id: 'N02', name: 'นิติยาภรณ์ แก้วมูลมุข', licenseNo: '6211266137', expireDate: '24-06-72', phone: '062-9392013', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N03', name: 'อภิชญา ประกายวิทย์', licenseNo: '4711107219', expireDate: '25-07-72', phone: '081-1289079', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N04', name: 'พรรณราย โยมา', licenseNo: '4411161606', expireDate: '28-03-69', phone: '098-7791689', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
   { id: 'N05', name: 'เรวริญ มะโนภี', licenseNo: '5611246897', expireDate: '28-07-71', phone: '065-6145465', defaultLocation: 'ห้องพยาบาล (อาคาร Plant 3)' },
@@ -601,7 +601,7 @@ const AppState = {
     telegramToken: '7141132492:AAEWzaarVZVCA7m9gAjQjoqsyXyTpFaoDKo',
     chatId: '-4567593144',
     autoTelegram: true,
-    gasUrl: ''
+    gasUrl: 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec'
   },
   dashboard: {
     viewMode: 'monthly', // 'monthly' | 'annual'
@@ -808,11 +808,24 @@ function loadStorage() {
   }
 
   // Load Settings
+  const defaultGas = 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec';
   const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
   if (storedSettings) {
     try {
-      AppState.settings = { ...AppState.settings, ...JSON.parse(storedSettings) };
+      const parsed = JSON.parse(storedSettings);
+      if (!parsed.gasUrl || !parsed.gasUrl.trim()) {
+        parsed.gasUrl = defaultGas;
+      }
+      AppState.settings = { ...AppState.settings, ...parsed };
     } catch (e) {}
+  } else {
+    AppState.settings.gasUrl = defaultGas;
+    saveSettings();
+  }
+  // Ensure gasUrl is never empty
+  if (!AppState.settings.gasUrl || !AppState.settings.gasUrl.trim()) {
+    AppState.settings.gasUrl = defaultGas;
+    saveSettings();
   }
   syncSettingsInputs();
 }
@@ -1385,13 +1398,16 @@ async function syncCheckinToGoogleSheet(record) {
   let gasSuccess = false;
   let formSuccess = false;
 
-  const gasUrl = AppState.settings.gasUrl;
-  const hasGasUrl = !!(gasUrl && gasUrl.trim() && gasUrl.indexOf('script.google.com') !== -1);
+  const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec';
+  const gasUrl = (AppState.settings && AppState.settings.gasUrl && AppState.settings.gasUrl.trim()) 
+    ? AppState.settings.gasUrl.trim() 
+    : DEFAULT_GAS_URL;
+  const hasGasUrl = !!(gasUrl && gasUrl.indexOf('script.google.com') !== -1);
 
   // 1. ส่งผ่าน Google Apps Script Web App URL (วิธีหลักที่ปลอดภัยและแน่นอน 100%)
   if (hasGasUrl) {
     try {
-      await fetch(gasUrl.trim(), {
+      await fetch(gasUrl, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -2276,7 +2292,18 @@ var TELEGRAM_TOKEN = "7141132492:AAEWzaarVZVCA7m9gAjQjoqsyXyTpFaoDKo";
 var CHAT_ID = "-4567593144";
 
 function doGet(e) {
-  return ContentService.createTextOutput("HANA Nurse Shift API is active!").setMimeType(ContentService.MimeType.TEXT);
+  try {
+    return HtmlService.createHtmlOutputFromFile('index')
+      .setTitle('ระบบแจ้งเวรเข้าทำงานห้องพยาบาล HANA LPN1')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "OK",
+      service: "HANA LPN1 Nurse Shift Web App & API Backend",
+      message: "ระบบ Google Apps Script Backend กำลังทำงานปกติ พร้อมรับข้อมูลการลงเวรจากหน้าเว็บ"
+    }, null, 2)).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
@@ -2335,17 +2362,23 @@ function doPost(e) {
           var h = String(headers[c] || "").trim().toLowerCase();
           if (c === 0 || h.indexOf("เวลา") !== -1 || h.indexOf("timestamp") !== -1) {
             rowData[c] = formattedTimestamp;
-          } else if (h === "ชื่อ" || h.indexOf("first") !== -1) {
+          } else if (h.indexOf("ชื่อ") !== -1 && (h.indexOf("สกุล") !== -1 || h.indexOf("นามสกุล") !== -1)) {
+            rowData[c] = fullName;
+          } else if (h === "ชื่อ" || (h.indexOf("ชื่อ") !== -1 && h.indexOf("สกุล") === -1) || h.indexOf("first") !== -1) {
             rowData[c] = firstName;
-          } else if (h === "นามสกุล" || h.indexOf("last") !== -1) {
+          } else if (h === "นามสกุล" || (h.indexOf("สกุล") !== -1 && h.indexOf("ชื่อ") === -1) || h.indexOf("last") !== -1) {
             rowData[c] = lastName;
           } else if (h.indexOf("วัน") !== -1 || h.indexOf("date") !== -1) {
             rowData[c] = formattedDutyDate;
           } else if (h.indexOf("โทร") !== -1 || h.indexOf("phone") !== -1 || h.indexOf("tel") !== -1) {
             rowData[c] = phoneText;
             phoneCol = c + 1;
-          } else if (h.indexOf("nurse") !== -1 || h.indexOf("เวร") !== -1 || h.indexOf("ห้อง") !== -1 || h.indexOf("room") !== -1) {
+          } else if (h.indexOf("nurse") !== -1 || h.indexOf("เวร") !== -1 || h.indexOf("ห้อง") !== -1 || h.indexOf("room") !== -1 || h.indexOf("กะ") !== -1 || h.indexOf("shift") !== -1) {
             rowData[c] = shiftText;
+          } else if (h.indexOf("สถาน") !== -1 || h.indexOf("จุด") !== -1 || h.indexOf("plant") !== -1 || h.indexOf("loc") !== -1) {
+            rowData[c] = data.location || "ห้องพยาบาล (อาคาร Plant 3)";
+          } else if (h.indexOf("หมายเหตุ") !== -1 || h.indexOf("note") !== -1) {
+            rowData[c] = data.note || "-";
           } else {
             rowData[c] = "";
           }
@@ -2460,8 +2493,11 @@ function sendTelegramNotification(data) {
  * ทดสอบส่งข้อมูลเข้า Google Sheet
  */
 async function testGoogleSheetConnection() {
-  const gasUrl = AppState.settings.gasUrl;
-  if (!gasUrl || !gasUrl.trim() || gasUrl.indexOf('script.google.com') === -1) {
+  const defaultGas = 'https://script.google.com/macros/s/AKfycbzFPM06nw70xULNiQ4nKdrmy50O1s7eMWqX71N4uVJrGaet-9wAzmfClS9-AITdvpnD5Q/exec';
+  const gasUrl = (AppState.settings && AppState.settings.gasUrl && AppState.settings.gasUrl.trim()) 
+    ? AppState.settings.gasUrl.trim() 
+    : defaultGas;
+  if (!gasUrl || gasUrl.indexOf('script.google.com') === -1) {
     showToast(
       'ยังไม่ได้ระบุ Web App URL',
       'กรุณานำ Web App URL (https://script.google.com/macros/s/.../exec) มากรอกในช่องด้านบนตาม 4 ขั้นตอนด้านขวามือ แล้วกดบันทึกก่อนทดสอบค่ะ',
