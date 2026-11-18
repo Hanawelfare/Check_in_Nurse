@@ -313,8 +313,13 @@
           </select>
         </div>
 
-        <div class="controls-right">
-          <span style="font-size: 0.8rem; color: var(--text-muted);">ข้อมูลอัปเดตอัตโนมัติ</span>
+        <div class="controls-right" style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+          <span id="sheet-sync-status-text" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">
+            🟢 เชื่อมต่อชีตสด
+          </span>
+          <button type="button" id="btn-sync-sheet-dash" class="btn-secondary" style="font-size: 0.82rem; padding: 0.45rem 0.9rem; display: inline-flex; align-items: center; gap: 0.35rem;" onclick="syncRecordsFromGoogleSheet(true)">
+            <span>🔄 อัปเดตข้อมูลจากชีต</span>
+          </button>
         </div>
       </div>
 
@@ -445,6 +450,11 @@
         <div class="banner-info">
           <h2><span>📋</span> ประวัติการลงเวลาเข้าเวรทั้งหมด</h2>
           <p>ตรวจสอบรายการขึ้นเวรย้อนหลัง ค้นหา และกดส่งข้อความเข้า Telegram ซ้ำได้ตามต้องการ</p>
+        </div>
+        <div class="banner-actions">
+          <button type="button" id="btn-sync-sheet-records" class="btn-secondary" onclick="syncRecordsFromGoogleSheet(true)">
+            <span>🔄</span> ซิงค์ข้อมูลล่าสุดจาก Google Sheet
+          </button>
         </div>
       </div>
 
@@ -637,6 +647,9 @@
             <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap;">
               <button type="submit" class="btn-submit" style="flex: 1; min-width: 150px; padding: 0.75rem;">
                 <span>💾 บันทึกการตั้งค่า</span>
+              </button>
+              <button type="button" id="btn-sync-from-sheet" class="btn-secondary" style="flex: 1; min-width: 170px; justify-content: center;" onclick="syncRecordsFromGoogleSheet(true)">
+                <span>🔄 ซิงค์ข้อมูลสดจากชีต</span>
               </button>
               <button type="button" id="btn-test-sheet" class="btn-secondary" style="flex: 1; min-width: 170px; justify-content: center;">
                 <span>📊 ทดสอบส่งเข้า Google Sheet</span>
